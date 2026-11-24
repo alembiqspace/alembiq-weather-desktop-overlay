@@ -11,24 +11,18 @@
 
 // ==WindhawkModReadme==
 /*
-A lightweight **Direct2D** weather and seasonal particle overlay for the Windows desktop (`explorer.exe`). It adds weather precipitation, seasonal falling objects, atmospheric effects, bottom snow accumulation, and an interactive snowman built from seasonal snow.
+A lightweight **Direct2D** weather and seasonal particle overlay for the Windows desktop (`explorer.exe`). It brings live weather visuals, seasonal falling elements, and atmospheric layers to your desktop without cluttering icons or windows.
+
+### Why Use It
+- **Alive Desktop Atmosphere:** Match your desktop environment to real-world weather or switch modes manually whenever you want a specific mood.
+- **Low System Impact:** Uses cached rendering resources, pauses during fullscreen apps, and idles down when no effects or particles are active.
+- **Flexible Customization:** Adjust intensity, speed, scale, colors, screen bounds, and frame rate to fit multi-monitor setups and personal aesthetics.
 
 ### Features
-- **Weather & Seasonal Objects:**
-  - Precipitation modes: `off`, `auto`, `rain` (with small bottom puddles), `snow` (with smooth bottom snow cap and lifetime melting), and `hail`.
-  - Seasonal modes: `off`, `auto` (date-based), `autumn_leaves`, `extra_snow`, and `petals`.
-  - Switching seasonal modes cleans up seasonal artifacts from the previous season without affecting active weather precipitation.
-- **Snowman from Seasonal Snow (`extra_snow`):**
-  - Build up to 3 snowballs along the bottom boundary (base, body, head) with gentle magnetic snapping toward the base.
-  - Features appear progressively as tiers stack: stick arms and a button on the second ball, eyes and a carrot nose on the third ball.
-  - Left-clicking the snowman scatters it into snow chunks so you can build it again.
-- **Cursor Modes (`none`, `clear`, `push`):**
-  - `none`: Ignores the cursor.
-  - `clear`: Erases fallen items on touch; left-clicking the snowman scatters it.
-  - `push`: Helps roll and assemble the snowman from seasonal snow until complete, then gently pushes/scatters particles and snowballs.
-- **Atmosphere & Weather Sources:**
-  - Supports **Open-Meteo**, a custom JSON API URL, or a local weather file, with `auto` / `on` / `off` overrides for effects.
-  - Includes clear sky glow, partly cloudy, overcast, dust, fog, smog, thunderstorm lightning, aurora, mirage, and configurable rainbow and halo arcs.
+- **Precipitation & Seasonal Layers:** Supports rain (with subtle bottom puddles), snow (with bottom accumulation and lifetime fade), hail, plus date-based or manual seasonal layers (autumn leaves, extra snow, and petals).
+- **Atmospheric Effects:** Combines clear sunlight glow, partly cloudy, overcast, dust, fog, smog, thunderstorm flashes, aurora, mirage, and configurable rainbow and halo arcs.
+- **Weather Sources:** Pulls live data from **Open-Meteo**, a custom JSON API endpoint, or a local file, with `auto` / `on` / `off` control per effect.
+- **Cursor Interaction:** Choose `none`, `clear` (erase settled particles on contact), or `push` (gently nudge settled elements) with an adjustable radius.
 */
 // ==/WindhawkModReadme==
 
