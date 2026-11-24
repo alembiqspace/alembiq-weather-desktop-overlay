@@ -2,160 +2,346 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.2.2
+// @version         0.3.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
 
-
 // ==WindhawkModSettings==
 /*
 - layerAttachMode: auto
   $name: Layer attach mode
+  $description: Controls Z-order placement of the overlay. Allowed values: auto, progman_direct, desktop_bottom. Default: auto.
   $options:
     - auto: Auto (below SHELLDLL_DefView icons)
     - progman_direct: Progman reference
     - desktop_bottom: Bottom of Z-order (HWND_BOTTOM)
 - bottomBoundaryMode: above_taskbar
   $name: Bottom accumulation boundary
+  $description: Sets the bottom reference line for fallen objects. Allowed values: above_taskbar, screen_bottom, custom_offset. Default: above_taskbar.
   $options:
     - above_taskbar: Above taskbar (Shell_TrayWnd)
     - screen_bottom: Bottom edge of screen
     - custom_offset: Custom offset from bottom (px)
 - bottomOffsetPx: 0
   $name: Custom bottom offset (px)
+  $description: Vertical offset in pixels above the bottom edge when bottomBoundaryMode is custom_offset. Range: -500 to 1000. Default: 0.
 - multiMonitorMode: primary
   $name: Monitors
+  $description: Selects primary monitor or full virtual screen across multiple monitors. Allowed values: primary, all. Default: primary.
   $options:
     - primary: Primary monitor
     - all: All monitors (virtual screen)
 
-- controlMode: manual
-  $name: Control mode (manual / auto)
-  $options:
-    - manual: Manual (stackable)
-    - auto: Automatic from forecast
 - primarySource: open_meteo
   $name: Primary weather source
+  $description: Primary forecast provider used when any setting is set to auto. Allowed values: open_meteo, custom_api, local_file. Default: open_meteo.
   $options:
     - open_meteo: Open-Meteo API
     - custom_api: Custom JSON URL
     - local_file: Local file
-- fallbackSource: manual
+- fallbackSource: off
   $name: Fallback weather source
+  $description: Secondary source if primary source fails. Allowed values: off, open_meteo, local_file. Default: off.
   $options:
-    - manual: Manual
+    - off: Off
     - open_meteo: Open-Meteo API
     - local_file: Local file
 - latitude: "44.7866"
   $name: Latitude
+  $description: Geographic latitude in decimal degrees for Open-Meteo. Range: -90.0 to 90.0. Default: 44.7866.
 - longitude: "20.4489"
   $name: Longitude
+  $description: Geographic longitude in decimal degrees for Open-Meteo. Range: -180.0 to 180.0. Default: 20.4489.
 - customApiUrl: ""
   $name: Custom JSON API URL
+  $description: HTTP/HTTPS endpoint returning weather JSON fields (weather_code, condition, wind_speed_10m, wind_direction_10m). Default: empty.
 - localWeatherPath: ""
   $name: Local weather file path
+  $description: Local file path containing JSON or weather keywords. Default: empty.
 - updateIntervalMin: 30
   $name: Weather update interval (min)
+  $description: Forecast polling interval in minutes. Range: 1 to 1440. Out-of-range values clamp to bounds. Default: 30.
 
-- enableGroupA: true
-  $name: "[A] Weather precipitation enabled"
-- manualWeatherPrecip: snow
-  $name: "[A] Manual weather precip"
-  $options:
-    - none: None
-    - rain: Rain
-    - heavy_rain: Heavy rain
-    - snow: Snow
-    - sleet: Sleet / wet snow
-    - hail: Hail / ice pellets
-- precipDensity: 45
-  $name: "[A] Precipitation density (per 1000px)"
-- particleScale: "1.0"
-  $name: "[A/B] Particle scale (0.4 - 3.0)"
-- colorRain: ""
-  $name: "[A] Rain custom HEX (#RRGGBB, empty = default)"
-- colorSnow: ""
-  $name: "[A] Snow custom HEX (#RRGGBB, empty = default)"
-- colorHail: ""
-  $name: "[A] Hail custom HEX (#RRGGBB, empty = default)"
+- springStart: "01.03"
+  $name: Spring start (DD.MM)
+  $description: Start date of spring in DD.MM format (01.01 to 31.12). Default: 01.03.
+- springEnd: "31.05"
+  $name: Spring end (DD.MM)
+  $description: End date of spring in DD.MM format (01.01 to 31.12). Default: 31.05.
+- summerStart: "01.06"
+  $name: Summer start (DD.MM)
+  $description: Start date of summer in DD.MM format (01.01 to 31.12). Default: 01.06.
+- summerEnd: "31.08"
+  $name: Summer end (DD.MM)
+  $description: End date of summer in DD.MM format (01.01 to 31.12). Default: 31.08.
+- autumnStart: "01.09"
+  $name: Autumn start (DD.MM)
+  $description: Start date of autumn in DD.MM format (01.01 to 31.12). Default: 01.09.
+- autumnEnd: "30.11"
+  $name: Autumn end (DD.MM)
+  $description: End date of autumn in DD.MM format (01.01 to 31.12). Default: 30.11.
+- winterStart: "01.12"
+  $name: Winter start (DD.MM)
+  $description: Start date of winter in DD.MM format (supports year wrap, e.g. 01.12). Default: 01.12.
+- winterEnd: "29.02"
+  $name: Winter end (DD.MM)
+  $description: End date of winter in DD.MM format (supports year wrap, e.g. 29.02). Default: 29.02.
 
-- groupBMode: manual
-  $name: "[B] Seasonal layer mode"
+- precipitationMode: auto
+  $name: Precipitation mode
+  $description: Controls weather precipitation layer. Allowed values: off, auto, rain, snow, hail. Default: auto.
   $options:
     - off: Off
-    - manual: Manual
-    - auto_season: Auto by season
-- manualSeasonType: sakura
-  $name: "[B] Manual seasonal type"
+    - auto: Auto (forecast)
+    - rain: Rain
+    - snow: Snow
+    - hail: Hail
+- precipFallDirection: auto
+  $name: Precipitation fall direction
+  $description: Direction of falling precipitation. Allowed values: auto, down, down_left, down_right. In auto mode, wind direction maps north/west to down_left and south/east to down_right (or down when calm). Default: auto.
   $options:
-    - sakura: Sakura petals
+    - auto: Auto (forecast)
+    - down: Down
+    - down_left: Down-left
+    - down_right: Down-right
+- precipFallSpeedMps: "6.5"
+  $name: Precipitation fall speed (m/s)
+  $description: Vertical fall speed of precipitation in m/s (scaled to screen motion). Range: 0.1 to 50.0. Default: 6.5.
+- rainIntensity: 25
+  $name: Rain intensity (%)
+  $description: Rain intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- snowIntensity: 25
+  $name: Snow intensity (%)
+  $description: Snow intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- hailIntensity: 25
+  $name: Hail intensity (%)
+  $description: Hail intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- rainMaxAccumulated: 180
+  $name: Rain puddles max count
+  $description: Maximum accumulated rain/puddle markers on screen. Range: 0 to 2000 (0 disables accumulation). Default: 180.
+- snowMaxAccumulated: 260
+  $name: Snow accumulation max count
+  $description: Maximum accumulated snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 260.
+- hailMaxAccumulated: 220
+  $name: Hail accumulation max count
+  $description: Maximum accumulated hail stones on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+- rainLifetimeMin: "3.0"
+  $name: Rain puddles lifetime (min)
+  $description: Auto-disappear time for accumulated rain elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 3.0.
+- snowLifetimeMin: "15.0"
+  $name: Snow accumulation lifetime (min)
+  $description: Auto-disappear time for accumulated snow elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0.
+- hailLifetimeMin: "10.0"
+  $name: Hail accumulation lifetime (min)
+  $description: Auto-disappear time for accumulated hail elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 10.0.
+- colorRain: ""
+  $name: Rain color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default sky-blue rain color.
+- colorSnow: ""
+  $name: Snow color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default white snow color.
+- colorHail: ""
+  $name: Hail color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default ice-blue hail color.
+
+- seasonalObjectMode: auto
+  $name: Seasonal falling objects mode
+  $description: Controls seasonal/general falling objects. Allowed values: off, auto, autumn_leaves, extra_snow, petals. Default: auto.
+  $options:
+    - off: Off
+    - auto: Auto (season)
     - autumn_leaves: Autumn leaves
-    - extra_snow: Extra snow layer
-- seasonDensity: 25
-  $name: "[B] Seasonal density (per 1000px)"
-- seasonWindDirection: "left"
-  $name: "[B] Seasonal wind direction (left / right / none)"
-- seasonWindStrength: 20
-  $name: "[B] Seasonal wind strength (0..100)"
-- colorSakura: ""
-  $name: "[B] Sakura custom HEX (#RRGGBB, empty = default)"
-- colorLeaves: ""
-  $name: "[B] Autumn leaves custom HEX (#RRGGBB, empty = default)"
+    - extra_snow: Snow (extra)
+    - petals: Petals
+- seasonalFallDirection: auto
+  $name: Seasonal objects fall direction
+  $description: Fall direction for seasonal objects. Allowed values: auto, down, down_left, down_right. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - down: Down
+    - down_left: Down-left
+    - down_right: Down-right
+- seasonalFallSpeedMps: "2.2"
+  $name: Seasonal objects fall speed (m/s)
+  $description: Vertical fall speed of seasonal objects in m/s. Range: 0.1 to 30.0. Default: 2.2.
+- autumnLeavesIntensity: 25
+  $name: Autumn leaves intensity (%)
+  $description: Autumn leaves intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- extraSnowIntensity: 25
+  $name: Extra snow intensity (%)
+  $description: Extra snow layer intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- petalsIntensity: 25
+  $name: Petals intensity (%)
+  $description: Falling petals intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+- autumnLeavesMaxAccumulated: 220
+  $name: Autumn leaves max count
+  $description: Maximum accumulated autumn leaves on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+- extraSnowMaxAccumulated: 240
+  $name: Extra snow max count
+  $description: Maximum accumulated extra snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 240.
+- petalsMaxAccumulated: 220
+  $name: Petals max count
+  $description: Maximum accumulated petals on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+- autumnLeavesLifetimeMin: "20.0"
+  $name: Autumn leaves lifetime (min)
+  $description: Auto-disappear time for accumulated autumn leaves in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 20.0.
+- extraSnowLifetimeMin: "15.0"
+  $name: Extra snow lifetime (min)
+  $description: Auto-disappear time for accumulated extra snow in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0.
+- petalsLifetimeMin: "12.0"
+  $name: Petals lifetime (min)
+  $description: Auto-disappear time for accumulated petals in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 12.0.
+- colorAutumnLeaves: ""
+  $name: Autumn leaves color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm amber/orange leaf color.
 - colorExtraSnow: ""
-  $name: "[B] Extra snow custom HEX (#RRGGBB, empty = default)"
+  $name: Extra snow color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft snow-white color.
+- colorPetals: ""
+  $name: Petals color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft pink petal color.
 
-- manualFog: false
-  $name: "[C] Manual: Fog"
-- manualRainbow: false
-  $name: "[C] Manual: Rainbow"
-- manualLightning: false
-  $name: "[C] Manual: Lightning"
-- manualWindSwirls: false
-  $name: "[C] Manual: Wind swirls"
-- atmosphereOpacity: 40
-  $name: "[C] Effect intensity / opacity (0..100%)"
-- swirlDensity: 18
-  $name: "[C] Wind swirls count (per 1000px)"
-- lightningFrequency: 25
-  $name: "[C] Lightning frequency (1..100)"
+- effectClear: auto
+  $name: "Effect: Clear"
+  $description: Controls clear sky glow effect. Allowed values: auto, on, off. Multiple effects can be active simultaneously. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectPartlyCloudy: auto
+  $name: "Effect: Partly cloudy"
+  $description: Controls partly cloudy soft cloud tint. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectOvercast: auto
+  $name: "Effect: Overcast"
+  $description: Controls overcast gray sky veil. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectDust: auto
+  $name: "Effect: Dust"
+  $description: Controls airborne dust haze/motes. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectFog: auto
+  $name: "Effect: Fog"
+  $description: Controls soft fog layer. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectSmog: auto
+  $name: "Effect: Smog"
+  $description: Controls dense smog tint. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectRainbow: auto
+  $name: "Effect: Rainbow"
+  $description: Controls rainbow arc overlay. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectHalo: auto
+  $name: "Effect: Halo"
+  $description: Controls atmospheric light halo ring. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectThunderstorm: auto
+  $name: "Effect: Thunderstorm"
+  $description: Controls storm darkening and lightning flashes. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectAurora: auto
+  $name: "Effect: Aurora"
+  $description: Controls aurora ribbons in upper screen area. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectMirage: auto
+  $name: "Effect: Mirage"
+  $description: Controls shimmer/mirage band near lower horizon. Allowed values: auto, on, off. Default: auto.
+  $options:
+    - auto: Auto (forecast)
+    - on: On
+    - off: Off
+- effectsIntensity: 25
+  $name: General effects intensity (%)
+  $description: Opacity/strength percentage for general atmospheric effects. Valid range: 0 to 100. Outside 0..100 resets to default 25.
+- colorClear: ""
+  $name: Clear effect color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm sunlight tint.
+- colorPartlyCloudy: ""
+  $name: Partly cloudy color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft cloud tint.
+- colorOvercast: ""
+  $name: Overcast color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default slate-gray overcast tint.
+- colorDust: ""
+  $name: Dust color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm sand-dust tint.
 - colorFog: ""
-  $name: "[C] Fog custom HEX (#RRGGBB, empty = default)"
+  $name: Fog color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default pale mist color.
+- colorSmog: ""
+  $name: Smog color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default brownish-gray smog tint.
 - colorRainbow: ""
-  $name: "[C] Rainbow accent HEX (#RRGGBB, empty = default)"
-- colorLightning: ""
-  $name: "[C] Lightning custom HEX (#RRGGBB, empty = default)"
-- colorSwirl: ""
-  $name: "[C] Wind swirl custom HEX (#RRGGBB, empty = default)"
+  $name: Rainbow accent color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses multi-band spectrum colors.
+- colorHalo: ""
+  $name: Halo color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default pale solar/lunar halo tint.
+- colorThunderstorm: ""
+  $name: Thunderstorm flash color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default electric blue-white lightning color.
+- colorAurora: ""
+  $name: Aurora color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default aurora green-cyan color.
+- colorMirage: ""
+  $name: Mirage color (#RRGGBB)
+  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm shimmer tint.
 
-- manualWindDirection: "left"
-  $name: "Manual wind direction (left / right / none)"
-- manualWindSpeed: 25
-  $name: "Manual wind speed (0..100)"
-- enableBottomAccumulation: true
-  $name: "Accumulate fallen objects at bottom"
-- enableWindowAccumulation: true
-  $name: "Accumulate fallen objects on window tops"
-- maxFallenItems: 450
-  $name: "Max fallen objects on screen"
+- particleScale: "1.0"
+  $name: Object size scale
+  $description: Visual size multiplier for falling and fallen objects. Range: 0.3 to 4.0. Default: 1.0.
 - windowShakeSensitivity: 55
-  $name: "Fallen shed sensitivity on window move (1..100)"
+  $name: Fallen shed sensitivity on window move (1..100)
+  $description: How easily fallen objects on window tops detach when moving/shaking a window. Range: 1 to 100. Default: 55.
 - windowInertiaFactor: "0.75"
-  $name: "Fallen shed inertia factor (0.0..3.0)"
+  $name: Fallen shed inertia factor
+  $description: Horizontal velocity transfer to detached fallen objects. Range: 0.0 to 3.0. Default: 0.75.
 - cursorInteraction: true
-  $name: "Cursor affects fallen objects only"
+  $name: Cursor affects fallen objects only
+  $description: When enabled, moving the cursor pushes/scatters fallen objects only (falling objects are unaffected). Default: true.
 - cursorRadiusPx: 95
-  $name: "Cursor influence radius on fallen objects (px)"
-- decaySpeed: "0.8"
-  $name: "Fallen objects fade/melt speed (items/sec)"
+  $name: Cursor radius (px)
+  $description: Radius around cursor in pixels affecting fallen objects. Range: 10 to 500. Default: 95.
 - targetFps: 60
-  $name: "Target FPS (30 or 60)"
+  $name: Target FPS (30 or 60)
+  $description: Frame rate cap for rendering loop. Allowed values: 30 or 60. Default: 60.
 - pauseOnFullscreen: true
-  $name: "Pause on fullscreen apps"
+  $name: Pause on fullscreen apps
+  $description: Pauses animation while a fullscreen application is active. Default: true.
 - excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
-  $name: "Excluded processes (comma-separated)"
+  $name: Excluded processes (comma-separated)
+  $description: Process executable names (comma-separated) excluded from window accumulation/shedding. Default: obs64.exe, ApplicationFrameHost.exe.
 */
 // ==/WindhawkModSettings==
 
@@ -178,29 +364,61 @@
 
 namespace {
 
-enum class PrecipKind {
-    None,
+enum class ObjectKind {
     Rain,
-    HeavyRain,
     Snow,
-    Sleet,
     Hail,
-    Sakura,
     AutumnLeaves,
-    ExtraSnow
+    ExtraSnow,
+    Petals
 };
 
-enum class WindDir {
-    None,
-    Left,
-    Right
+enum class PrecipMode {
+    Off,
+    Auto,
+    Rain,
+    Snow,
+    Hail
 };
 
-struct EffectFlags {
+enum class SeasonalMode {
+    Off,
+    Auto,
+    AutumnLeaves,
+    ExtraSnow,
+    Petals
+};
+
+enum class TriStateMode {
+    Auto,
+    On,
+    Off
+};
+
+enum class FallDirMode {
+    Auto,
+    Down,
+    DownLeft,
+    DownRight
+};
+
+struct GeneralEffectsState {
+    bool clear = false;
+    bool partlyCloudy = false;
+    bool overcast = false;
+    bool dust = false;
     bool fog = false;
+    bool smog = false;
     bool rainbow = false;
-    bool lightning = false;
-    bool windSwirls = false;
+    bool halo = false;
+    bool thunderstorm = false;
+    bool aurora = false;
+    bool mirage = false;
+};
+
+struct DayMonth {
+    int day = 1;
+    int month = 1;
 };
 
 struct Settings {
@@ -209,69 +427,114 @@ struct Settings {
     int bottomOffsetPx = 0;
     std::wstring multiMonitorMode = L"primary";
 
-    std::wstring controlMode = L"manual";
     std::wstring primarySource = L"open_meteo";
-    std::wstring fallbackSource = L"manual";
+    std::wstring fallbackSource = L"off";
     double latitude = 44.7866;
     double longitude = 20.4489;
     std::wstring customApiUrl;
     std::wstring localWeatherPath;
     int updateIntervalMin = 30;
 
-    bool enableGroupA = true;
-    PrecipKind manualWeatherPrecip = PrecipKind::Snow;
-    int precipDensity = 45;
-    double particleScale = 1.0;
+    DayMonth springStart{1, 3};
+    DayMonth springEnd{31, 5};
+    DayMonth summerStart{1, 6};
+    DayMonth summerEnd{31, 8};
+    DayMonth autumnStart{1, 9};
+    DayMonth autumnEnd{30, 11};
+    DayMonth winterStart{1, 12};
+    DayMonth winterEnd{29, 2};
 
-    std::wstring groupBMode = L"manual";
-    PrecipKind manualSeasonType = PrecipKind::Sakura;
-    int seasonDensity = 25;
-    WindDir seasonWindDirection = WindDir::Left;
-    int seasonWindStrength = 20;
+    PrecipMode precipitationMode = PrecipMode::Auto;
+    FallDirMode precipFallDirection = FallDirMode::Auto;
+    double precipFallSpeedMps = 6.5;
 
-    bool manualFog = false;
-    bool manualRainbow = false;
-    bool manualLightning = false;
-    bool manualWindSwirls = false;
-    int atmosphereOpacity = 40;
-    int swirlDensity = 18;
-    int lightningFrequency = 25;
+    int rainIntensity = 25;
+    int snowIntensity = 25;
+    int hailIntensity = 25;
 
-    D2D1_COLOR_F colorRain = D2D1::ColorF(0.42f, 0.72f, 1.0f, 0.75f);
+    int rainMaxAccumulated = 180;
+    int snowMaxAccumulated = 260;
+    int hailMaxAccumulated = 220;
+
+    double rainLifetimeMin = 3.0;
+    double snowLifetimeMin = 15.0;
+    double hailLifetimeMin = 10.0;
+
+    SeasonalMode seasonalObjectMode = SeasonalMode::Auto;
+    FallDirMode seasonalFallDirection = FallDirMode::Auto;
+    double seasonalFallSpeedMps = 2.2;
+
+    int autumnLeavesIntensity = 25;
+    int extraSnowIntensity = 25;
+    int petalsIntensity = 25;
+
+    int autumnLeavesMaxAccumulated = 220;
+    int extraSnowMaxAccumulated = 240;
+    int petalsMaxAccumulated = 220;
+
+    double autumnLeavesLifetimeMin = 20.0;
+    double extraSnowLifetimeMin = 15.0;
+    double petalsLifetimeMin = 12.0;
+
+    TriStateMode effectClear = TriStateMode::Auto;
+    TriStateMode effectPartlyCloudy = TriStateMode::Auto;
+    TriStateMode effectOvercast = TriStateMode::Auto;
+    TriStateMode effectDust = TriStateMode::Auto;
+    TriStateMode effectFog = TriStateMode::Auto;
+    TriStateMode effectSmog = TriStateMode::Auto;
+    TriStateMode effectRainbow = TriStateMode::Auto;
+    TriStateMode effectHalo = TriStateMode::Auto;
+    TriStateMode effectThunderstorm = TriStateMode::Auto;
+    TriStateMode effectAurora = TriStateMode::Auto;
+    TriStateMode effectMirage = TriStateMode::Auto;
+    int effectsIntensity = 25;
+
+    D2D1_COLOR_F colorRain = D2D1::ColorF(0.42f, 0.72f, 1.0f, 0.78f);
     D2D1_COLOR_F colorSnow = D2D1::ColorF(0.96f, 0.98f, 1.0f, 0.92f);
     D2D1_COLOR_F colorHail = D2D1::ColorF(0.76f, 0.90f, 1.0f, 0.95f);
-    D2D1_COLOR_F colorSakura = D2D1::ColorF(1.0f, 0.74f, 0.84f, 0.90f);
-    D2D1_COLOR_F colorLeaves = D2D1::ColorF(0.88f, 0.44f, 0.12f, 0.92f);
+    D2D1_COLOR_F colorAutumnLeaves = D2D1::ColorF(0.88f, 0.44f, 0.12f, 0.92f);
     D2D1_COLOR_F colorExtraSnow = D2D1::ColorF(0.92f, 0.96f, 1.0f, 0.88f);
+    D2D1_COLOR_F colorPetals = D2D1::ColorF(1.0f, 0.74f, 0.84f, 0.90f);
+
+    bool hasCustomClearColor = false;
+    D2D1_COLOR_F colorClear = D2D1::ColorF(1.0f, 0.92f, 0.65f, 0.25f);
+    bool hasCustomPartlyCloudyColor = false;
+    D2D1_COLOR_F colorPartlyCloudy = D2D1::ColorF(0.88f, 0.91f, 0.95f, 0.22f);
+    bool hasCustomOvercastColor = false;
+    D2D1_COLOR_F colorOvercast = D2D1::ColorF(0.55f, 0.59f, 0.65f, 0.35f);
+    bool hasCustomDustColor = false;
+    D2D1_COLOR_F colorDust = D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.28f);
+    bool hasCustomFogColor = false;
     D2D1_COLOR_F colorFog = D2D1::ColorF(0.82f, 0.86f, 0.90f, 0.35f);
-    D2D1_COLOR_F colorRainbow = D2D1::ColorF(1.0f, 0.85f, 0.45f, 0.35f);
-    D2D1_COLOR_F colorLightning = D2D1::ColorF(0.86f, 0.93f, 1.0f, 0.95f);
-    D2D1_COLOR_F colorSwirl = D2D1::ColorF(0.85f, 0.92f, 0.98f, 0.45f);
+    bool hasCustomSmogColor = false;
+    D2D1_COLOR_F colorSmog = D2D1::ColorF(0.56f, 0.50f, 0.42f, 0.36f);
+    bool hasCustomRainbowColor = false;
+    D2D1_COLOR_F colorRainbow = D2D1::ColorF(1.0f, 0.78f, 0.35f, 0.35f);
+    bool hasCustomHaloColor = false;
+    D2D1_COLOR_F colorHalo = D2D1::ColorF(0.98f, 0.95f, 0.82f, 0.32f);
+    bool hasCustomThunderstormColor = false;
+    D2D1_COLOR_F colorThunderstorm = D2D1::ColorF(0.84f, 0.92f, 1.0f, 0.95f);
+    bool hasCustomAuroraColor = false;
+    D2D1_COLOR_F colorAurora = D2D1::ColorF(0.22f, 0.92f, 0.62f, 0.32f);
+    bool hasCustomMirageColor = false;
+    D2D1_COLOR_F colorMirage = D2D1::ColorF(0.98f, 0.86f, 0.66f, 0.25f);
 
-    WindDir manualWindDirection = WindDir::Left;
-    int manualWindSpeed = 25;
-
-    bool enableBottomAccumulation = true;
-    bool enableWindowAccumulation = true;
-    int maxFallenItems = 450;
+    double particleScale = 1.0;
     int windowShakeSensitivity = 55;
     double windowInertiaFactor = 0.75;
     bool cursorInteraction = true;
     int cursorRadiusPx = 95;
-    double decaySpeed = 0.8;
 
     int targetFps = 60;
     bool pauseOnFullscreen = true;
     std::wstring excludedProcesses = L"obs64.exe, ApplicationFrameHost.exe";
 };
 
-struct FallingParticle {
-    PrecipKind kind = PrecipKind::Snow;
-    bool fromSeasonGroup = false;
+struct FallingItem {
+    ObjectKind kind = ObjectKind::Snow;
+    bool isSeasonalLayer = false;
     float x = 0.0f;
     float y = 0.0f;
-    float vx = 0.0f;
-    float vy = 0.0f;
     float size = 6.0f;
     float angle = 0.0f;
     float spin = 0.0f;
@@ -279,30 +542,24 @@ struct FallingParticle {
     float alpha = 0.9f;
 };
 
-struct FallenObject {
-    PrecipKind kind = PrecipKind::Snow;
+struct FallenItem {
+    ObjectKind kind = ObjectKind::Snow;
+    bool isSeasonalLayer = false;
     bool onWindow = false;
     HWND hostWindow = nullptr;
-    float relX = 0.0f;      // X относительно hostWindow.left или экрана
-    float relY = 0.0f;      // Y относительно hostWindow.top или bottomLimitY
+    float relX = 0.0f;
+    float relY = 0.0f;
     float vx = 0.0f;
     float vy = 0.0f;
     float size = 6.0f;
     float angle = 0.0f;
     float alpha = 0.92f;
+    float ageSec = 0.0f;
     bool fallingOff = false;
 };
 
-struct WindSwirl {
-    float x = 0.0f;
-    float y = 0.0f;
-    float radius = 26.0f;
-    float speed = 90.0f;
-    float phase = 0.0f;
-};
-
-struct LightningBolt {
-    float activeTimer = 0.0f;
+struct LightningFlash {
+    float timer = 0.0f;
     float xStart = 0.0f;
     float xEnd = 0.0f;
 };
@@ -311,18 +568,17 @@ struct WindowMotion {
     RECT rect = {};
     float prevCenterX = 0.0f;
     float prevCenterY = 0.0f;
-    float vx = 0.0f;
-    float vy = 0.0f;
     bool hasPrev = false;
 };
 
 std::mutex g_mutex;
 Settings g_settings;
 
-PrecipKind g_autoPrecip = PrecipKind::None;
-WindDir g_autoWindDir = WindDir::None;
-double g_autoWindSpeedKmh = 0.0;
-EffectFlags g_autoEffects;
+bool g_hasForecastPrecip = false;
+ObjectKind g_forecastPrecip = ObjectKind::Rain;
+int g_forecastWindDirSign = 0; // -1 left, 0 none, +1 right
+double g_forecastWindSpeedKmh = 0.0;
+GeneralEffectsState g_forecastEffects;
 
 HWND g_overlayHwnd = nullptr;
 std::thread g_renderThread;
@@ -342,10 +598,9 @@ int g_canvasTop = 0;
 int g_canvasWidth = 0;
 int g_canvasHeight = 0;
 
-std::vector<FallingParticle> g_falling;
-std::vector<FallenObject> g_fallen;
-std::vector<WindSwirl> g_swirls;
-LightningBolt g_lightning;
+std::vector<FallingItem> g_falling;
+std::vector<FallenItem> g_fallen;
+LightningFlash g_lightning;
 std::unordered_map<HWND, WindowMotion> g_windows;
 
 std::wstring ToLower(std::wstring s) {
@@ -360,50 +615,92 @@ std::wstring Trim(const std::wstring& s) {
     return s.substr(a, b - a + 1);
 }
 
-WindDir ParseWindDir(const std::wstring& s) {
-    std::wstring v = ToLower(Trim(s));
-    if (v == L"left" || v == L"west" || v == L"north" || v == L"nw" || v == L"sw" || v == L"n" || v == L"w") {
-        return WindDir::Left;
-    }
-    if (v == L"right" || v == L"east" || v == L"south" || v == L"ne" || v == L"se" || v == L"s" || v == L"e") {
-        return WindDir::Right;
-    }
-    return WindDir::None;
+int SanitizePercent(int rawVal) {
+    if (rawVal < 0 || rawVal > 100) return 25;
+    return rawVal;
 }
 
-WindDir WindDirectionDegToDir(double deg) {
-    double norm = std::fmod(deg, 360.0);
-    if (norm < 0.0) norm += 360.0;
-    // Север (0..45, 315..360) и Запад (225..315) -> влево
-    // Юг (135..225) и Восток (45..135) -> вправо
-    if (norm >= 45.0 && norm < 225.0) {
-        return WindDir::Right;
+DayMonth ParseDayMonth(const std::wstring& raw, DayMonth defVal) {
+    std::wstring s = Trim(raw);
+    size_t dot = s.find(L'.');
+    if (dot == std::wstring::npos) dot = s.find(L'/');
+    if (dot == std::wstring::npos) return defVal;
+    try {
+        int d = std::stoi(s.substr(0, dot));
+        int m = std::stoi(s.substr(dot + 1));
+        if (m < 1 || m > 12 || d < 1 || d > 31) return defVal;
+        return DayMonth{d, m};
+    } catch (...) {
+        return defVal;
     }
-    return WindDir::Left;
 }
 
-PrecipKind ParsePrecipKind(const std::wstring& s) {
-    std::wstring v = ToLower(Trim(s));
-    if (v == L"rain") return PrecipKind::Rain;
-    if (v == L"heavy_rain") return PrecipKind::HeavyRain;
-    if (v == L"snow") return PrecipKind::Snow;
-    if (v == L"sleet") return PrecipKind::Sleet;
-    if (v == L"hail") return PrecipKind::Hail;
-    if (v == L"sakura") return PrecipKind::Sakura;
-    if (v == L"autumn_leaves" || v == L"leaves") return PrecipKind::AutumnLeaves;
-    if (v == L"extra_snow") return PrecipKind::ExtraSnow;
-    return PrecipKind::None;
+int ToMonthDayKey(int month, int day) {
+    return month * 100 + day;
 }
 
-PrecipKind DetectCurrentSeasonPrecip() {
+bool IsDateInRange(int curKey, DayMonth start, DayMonth end) {
+    int sKey = ToMonthDayKey(start.month, start.day);
+    int eKey = ToMonthDayKey(end.month, end.day);
+    if (sKey <= eKey) {
+        return curKey >= sKey && curKey <= eKey;
+    }
+    return curKey >= sKey || curKey <= eKey;
+}
+
+SeasonalMode DetectSeasonByDates(const Settings& cfg) {
     std::time_t now = std::time(nullptr);
     std::tm tmLocal = {};
     localtime_s(&tmLocal, &now);
-    int m = tmLocal.tm_mon + 1;
-    if (m >= 3 && m <= 5) return PrecipKind::Sakura;
-    if (m >= 9 && m <= 11) return PrecipKind::AutumnLeaves;
-    if (m == 12 || m <= 2) return PrecipKind::ExtraSnow;
-    return PrecipKind::None;
+    int curKey = ToMonthDayKey(tmLocal.tm_mon + 1, tmLocal.tm_mday);
+
+    if (IsDateInRange(curKey, cfg.springStart, cfg.springEnd)) return SeasonalMode::Petals;
+    if (IsDateInRange(curKey, cfg.summerStart, cfg.summerEnd)) return SeasonalMode::Off;
+    if (IsDateInRange(curKey, cfg.autumnStart, cfg.autumnEnd)) return SeasonalMode::AutumnLeaves;
+    if (IsDateInRange(curKey, cfg.winterStart, cfg.winterEnd)) return SeasonalMode::ExtraSnow;
+    return SeasonalMode::Off;
+}
+
+PrecipMode ParsePrecipMode(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"off") return PrecipMode::Off;
+    if (v == L"rain") return PrecipMode::Rain;
+    if (v == L"snow") return PrecipMode::Snow;
+    if (v == L"hail") return PrecipMode::Hail;
+    return PrecipMode::Auto;
+}
+
+SeasonalMode ParseSeasonalMode(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"off") return SeasonalMode::Off;
+    if (v == L"autumn_leaves" || v == L"leaves") return SeasonalMode::AutumnLeaves;
+    if (v == L"extra_snow" || v == L"snow") return SeasonalMode::ExtraSnow;
+    if (v == L"petals" || v == L"sakura") return SeasonalMode::Petals;
+    return SeasonalMode::Auto;
+}
+
+TriStateMode ParseTriState(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"on") return TriStateMode::On;
+    if (v == L"off") return TriStateMode::Off;
+    return TriStateMode::Auto;
+}
+
+FallDirMode ParseFallDir(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"down") return FallDirMode::Down;
+    if (v == L"down_left" || v == L"left") return FallDirMode::DownLeft;
+    if (v == L"down_right" || v == L"right") return FallDirMode::DownRight;
+    return FallDirMode::Auto;
+}
+
+int WindDegToSign(double deg) {
+    double norm = std::fmod(deg, 360.0);
+    if (norm < 0.0) norm += 360.0;
+    // Север (315..360, 0..45) и Запад (225..315) -> влево (-1)
+    // Восток (45..135) и Юг (135..225) -> вправо (+1)
+    if (norm >= 45.0 && norm < 225.0) return 1;
+    return -1;
 }
 
 bool TryParseHexColor(const std::wstring& hexRaw, float defaultAlpha, D2D1_COLOR_F& outColor) {
@@ -446,59 +743,104 @@ void LoadSettingsFromWh() {
 
     next.layerAttachMode = readStr(L"layerAttachMode", L"auto");
     next.bottomBoundaryMode = readStr(L"bottomBoundaryMode", L"above_taskbar");
-    next.bottomOffsetPx = Wh_GetIntSetting(L"bottomOffsetPx");
+    next.bottomOffsetPx = std::clamp(Wh_GetIntSetting(L"bottomOffsetPx"), -500, 1000);
     next.multiMonitorMode = readStr(L"multiMonitorMode", L"primary");
 
-    next.controlMode = readStr(L"controlMode", L"manual");
     next.primarySource = readStr(L"primarySource", L"open_meteo");
-    next.fallbackSource = readStr(L"fallbackSource", L"manual");
-    try { next.latitude = std::stod(readStr(L"latitude", L"44.7866")); } catch (...) {}
-    try { next.longitude = std::stod(readStr(L"longitude", L"20.4489")); } catch (...) {}
+    next.fallbackSource = readStr(L"fallbackSource", L"off");
+    try { next.latitude = std::clamp(std::stod(readStr(L"latitude", L"44.7866")), -90.0, 90.0); } catch (...) {}
+    try { next.longitude = std::clamp(std::stod(readStr(L"longitude", L"20.4489")), -180.0, 180.0); } catch (...) {}
     next.customApiUrl = readStr(L"customApiUrl", L"");
     next.localWeatherPath = readStr(L"localWeatherPath", L"");
-    next.updateIntervalMin = std::max(1, Wh_GetIntSetting(L"updateIntervalMin"));
+    next.updateIntervalMin = std::clamp(Wh_GetIntSetting(L"updateIntervalMin"), 1, 1440);
 
-    next.enableGroupA = Wh_GetIntSetting(L"enableGroupA") != 0;
-    next.manualWeatherPrecip = ParsePrecipKind(readStr(L"manualWeatherPrecip", L"snow"));
-    next.precipDensity = std::clamp(Wh_GetIntSetting(L"precipDensity"), 0, 250);
-    try { next.particleScale = std::clamp(std::stod(readStr(L"particleScale", L"1.0")), 0.4, 3.0); } catch (...) {}
+    next.springStart = ParseDayMonth(readStr(L"springStart", L"01.03"), DayMonth{1, 3});
+    next.springEnd = ParseDayMonth(readStr(L"springEnd", L"31.05"), DayMonth{31, 5});
+    next.summerStart = ParseDayMonth(readStr(L"summerStart", L"01.06"), DayMonth{1, 6});
+    next.summerEnd = ParseDayMonth(readStr(L"summerEnd", L"31.08"), DayMonth{31, 8});
+    next.autumnStart = ParseDayMonth(readStr(L"autumnStart", L"01.09"), DayMonth{1, 9});
+    next.autumnEnd = ParseDayMonth(readStr(L"autumnEnd", L"30.11"), DayMonth{30, 11});
+    next.winterStart = ParseDayMonth(readStr(L"winterStart", L"01.12"), DayMonth{1, 12});
+    next.winterEnd = ParseDayMonth(readStr(L"winterEnd", L"29.02"), DayMonth{29, 2});
 
-    next.groupBMode = readStr(L"groupBMode", L"manual");
-    next.manualSeasonType = ParsePrecipKind(readStr(L"manualSeasonType", L"sakura"));
-    next.seasonDensity = std::clamp(Wh_GetIntSetting(L"seasonDensity"), 0, 200);
-    next.seasonWindDirection = ParseWindDir(readStr(L"seasonWindDirection", L"left"));
-    next.seasonWindStrength = std::clamp(Wh_GetIntSetting(L"seasonWindStrength"), 0, 100);
+    next.precipitationMode = ParsePrecipMode(readStr(L"precipitationMode", L"auto"));
+    next.precipFallDirection = ParseFallDir(readStr(L"precipFallDirection", L"auto"));
+    try { next.precipFallSpeedMps = std::clamp(std::stod(readStr(L"precipFallSpeedMps", L"6.5")), 0.1, 50.0); } catch (...) {}
 
-    next.manualFog = Wh_GetIntSetting(L"manualFog") != 0;
-    next.manualRainbow = Wh_GetIntSetting(L"manualRainbow") != 0;
-    next.manualLightning = Wh_GetIntSetting(L"manualLightning") != 0;
-    next.manualWindSwirls = Wh_GetIntSetting(L"manualWindSwirls") != 0;
-    next.atmosphereOpacity = std::clamp(Wh_GetIntSetting(L"atmosphereOpacity"), 0, 100);
-    next.swirlDensity = std::clamp(Wh_GetIntSetting(L"swirlDensity"), 0, 100);
-    next.lightningFrequency = std::clamp(Wh_GetIntSetting(L"lightningFrequency"), 1, 100);
+    next.rainIntensity = SanitizePercent(Wh_GetIntSetting(L"rainIntensity"));
+    next.snowIntensity = SanitizePercent(Wh_GetIntSetting(L"snowIntensity"));
+    next.hailIntensity = SanitizePercent(Wh_GetIntSetting(L"hailIntensity"));
 
-    TryParseHexColor(readStr(L"colorRain", L""), 0.75f, next.colorRain);
+    next.rainMaxAccumulated = std::clamp(Wh_GetIntSetting(L"rainMaxAccumulated"), 0, 2000);
+    next.snowMaxAccumulated = std::clamp(Wh_GetIntSetting(L"snowMaxAccumulated"), 0, 2000);
+    next.hailMaxAccumulated = std::clamp(Wh_GetIntSetting(L"hailMaxAccumulated"), 0, 2000);
+
+    auto readLifetime = [&](LPCWSTR key, double defMin) -> double {
+        try {
+            double v = std::stod(readStr(key, L""));
+            if (v < 0.0) return -1.0;
+            return std::clamp(v, 0.05, 1440.0);
+        } catch (...) {
+            return defMin;
+        }
+    };
+    next.rainLifetimeMin = readLifetime(L"rainLifetimeMin", 3.0);
+    next.snowLifetimeMin = readLifetime(L"snowLifetimeMin", 15.0);
+    next.hailLifetimeMin = readLifetime(L"hailLifetimeMin", 10.0);
+
+    next.seasonalObjectMode = ParseSeasonalMode(readStr(L"seasonalObjectMode", L"auto"));
+    next.seasonalFallDirection = ParseFallDir(readStr(L"seasonalFallDirection", L"auto"));
+    try { next.seasonalFallSpeedMps = std::clamp(std::stod(readStr(L"seasonalFallSpeedMps", L"2.2")), 0.1, 30.0); } catch (...) {}
+
+    next.autumnLeavesIntensity = SanitizePercent(Wh_GetIntSetting(L"autumnLeavesIntensity"));
+    next.extraSnowIntensity = SanitizePercent(Wh_GetIntSetting(L"extraSnowIntensity"));
+    next.petalsIntensity = SanitizePercent(Wh_GetIntSetting(L"petalsIntensity"));
+
+    next.autumnLeavesMaxAccumulated = std::clamp(Wh_GetIntSetting(L"autumnLeavesMaxAccumulated"), 0, 2000);
+    next.extraSnowMaxAccumulated = std::clamp(Wh_GetIntSetting(L"extraSnowMaxAccumulated"), 0, 2000);
+    next.petalsMaxAccumulated = std::clamp(Wh_GetIntSetting(L"petalsMaxAccumulated"), 0, 2000);
+
+    next.autumnLeavesLifetimeMin = readLifetime(L"autumnLeavesLifetimeMin", 20.0);
+    next.extraSnowLifetimeMin = readLifetime(L"extraSnowLifetimeMin", 15.0);
+    next.petalsLifetimeMin = readLifetime(L"petalsLifetimeMin", 12.0);
+
+    next.effectClear = ParseTriState(readStr(L"effectClear", L"auto"));
+    next.effectPartlyCloudy = ParseTriState(readStr(L"effectPartlyCloudy", L"auto"));
+    next.effectOvercast = ParseTriState(readStr(L"effectOvercast", L"auto"));
+    next.effectDust = ParseTriState(readStr(L"effectDust", L"auto"));
+    next.effectFog = ParseTriState(readStr(L"effectFog", L"auto"));
+    next.effectSmog = ParseTriState(readStr(L"effectSmog", L"auto"));
+    next.effectRainbow = ParseTriState(readStr(L"effectRainbow", L"auto"));
+    next.effectHalo = ParseTriState(readStr(L"effectHalo", L"auto"));
+    next.effectThunderstorm = ParseTriState(readStr(L"effectThunderstorm", L"auto"));
+    next.effectAurora = ParseTriState(readStr(L"effectAurora", L"auto"));
+    next.effectMirage = ParseTriState(readStr(L"effectMirage", L"auto"));
+    next.effectsIntensity = SanitizePercent(Wh_GetIntSetting(L"effectsIntensity"));
+
+    TryParseHexColor(readStr(L"colorRain", L""), 0.78f, next.colorRain);
     TryParseHexColor(readStr(L"colorSnow", L""), 0.92f, next.colorSnow);
     TryParseHexColor(readStr(L"colorHail", L""), 0.95f, next.colorHail);
-    TryParseHexColor(readStr(L"colorSakura", L""), 0.90f, next.colorSakura);
-    TryParseHexColor(readStr(L"colorLeaves", L""), 0.92f, next.colorLeaves);
+    TryParseHexColor(readStr(L"colorAutumnLeaves", L""), 0.92f, next.colorAutumnLeaves);
     TryParseHexColor(readStr(L"colorExtraSnow", L""), 0.88f, next.colorExtraSnow);
-    TryParseHexColor(readStr(L"colorFog", L""), 0.35f, next.colorFog);
-    TryParseHexColor(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
-    TryParseHexColor(readStr(L"colorLightning", L""), 0.95f, next.colorLightning);
-    TryParseHexColor(readStr(L"colorSwirl", L""), 0.45f, next.colorSwirl);
+    TryParseHexColor(readStr(L"colorPetals", L""), 0.90f, next.colorPetals);
 
-    next.manualWindDirection = ParseWindDir(readStr(L"manualWindDirection", L"left"));
-    next.manualWindSpeed = std::clamp(Wh_GetIntSetting(L"manualWindSpeed"), 0, 100);
+    next.hasCustomClearColor = TryParseHexColor(readStr(L"colorClear", L""), 0.25f, next.colorClear);
+    next.hasCustomPartlyCloudyColor = TryParseHexColor(readStr(L"colorPartlyCloudy", L""), 0.22f, next.colorPartlyCloudy);
+    next.hasCustomOvercastColor = TryParseHexColor(readStr(L"colorOvercast", L""), 0.35f, next.colorOvercast);
+    next.hasCustomDustColor = TryParseHexColor(readStr(L"colorDust", L""), 0.28f, next.colorDust);
+    next.hasCustomFogColor = TryParseHexColor(readStr(L"colorFog", L""), 0.35f, next.colorFog);
+    next.hasCustomSmogColor = TryParseHexColor(readStr(L"colorSmog", L""), 0.36f, next.colorSmog);
+    next.hasCustomRainbowColor = TryParseHexColor(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
+    next.hasCustomHaloColor = TryParseHexColor(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
+    next.hasCustomThunderstormColor = TryParseHexColor(readStr(L"colorThunderstorm", L""), 0.95f, next.colorThunderstorm);
+    next.hasCustomAuroraColor = TryParseHexColor(readStr(L"colorAurora", L""), 0.32f, next.colorAurora);
+    next.hasCustomMirageColor = TryParseHexColor(readStr(L"colorMirage", L""), 0.25f, next.colorMirage);
 
-    next.enableBottomAccumulation = Wh_GetIntSetting(L"enableBottomAccumulation") != 0;
-    next.enableWindowAccumulation = Wh_GetIntSetting(L"enableWindowAccumulation") != 0;
-    next.maxFallenItems = std::clamp(Wh_GetIntSetting(L"maxFallenItems"), 20, 2000);
+    try { next.particleScale = std::clamp(std::stod(readStr(L"particleScale", L"1.0")), 0.3, 4.0); } catch (...) {}
     next.windowShakeSensitivity = std::clamp(Wh_GetIntSetting(L"windowShakeSensitivity"), 1, 100);
     try { next.windowInertiaFactor = std::clamp(std::stod(readStr(L"windowInertiaFactor", L"0.75")), 0.0, 3.0); } catch (...) {}
     next.cursorInteraction = Wh_GetIntSetting(L"cursorInteraction") != 0;
-    next.cursorRadiusPx = std::clamp(Wh_GetIntSetting(L"cursorRadiusPx"), 15, 450);
-    try { next.decaySpeed = std::max(0.0, std::stod(readStr(L"decaySpeed", L"0.8"))); } catch (...) {}
+    next.cursorRadiusPx = std::clamp(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500);
 
     next.targetFps = (Wh_GetIntSetting(L"targetFps") == 30) ? 30 : 60;
     next.pauseOnFullscreen = Wh_GetIntSetting(L"pauseOnFullscreen") != 0;
@@ -520,7 +862,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.3", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.4", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -552,33 +894,37 @@ std::string HttpGetUtf8(const std::wstring& url) {
     return response;
 }
 
-void ApplyWmoCode(int code, PrecipKind& outPrecip, EffectFlags& outFx) {
-    outPrecip = PrecipKind::None;
-    outFx = EffectFlags{};
+void ApplyForecastCode(int code, bool& hasPrecip, ObjectKind& precipKind, GeneralEffectsState& fx) {
+    hasPrecip = false;
+    fx = GeneralEffectsState{};
 
-    if (code == 45 || code == 48) {
-        outFx.fog = true;
-    } else if (code == 71 || code == 85) {
-        outPrecip = PrecipKind::Snow;
-    } else if (code == 73 || code == 75 || code == 86) {
-        outPrecip = PrecipKind::Snow;
-    } else if (code == 77) {
-        outPrecip = PrecipKind::Sleet;
+    if (code == 0) {
+        fx.clear = true;
+    } else if (code == 1 || code == 2) {
+        fx.partlyCloudy = true;
+    } else if (code == 3) {
+        fx.overcast = true;
+    } else if (code == 45 || code == 48) {
+        fx.fog = true;
+    } else if (code == 71 || code == 73 || code == 75 || code == 77 || code == 85 || code == 86) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Snow;
     } else if (code == 96 || code == 99) {
-        outPrecip = PrecipKind::Hail;
-        outFx.lightning = true;
+        hasPrecip = true;
+        precipKind = ObjectKind::Hail;
+        fx.thunderstorm = true;
     } else if (code == 95) {
-        outPrecip = PrecipKind::HeavyRain;
-        outFx.lightning = true;
-    } else if (code == 65 || code == 82) {
-        outPrecip = PrecipKind::HeavyRain;
-    } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 81)) {
-        outPrecip = PrecipKind::Rain;
+        hasPrecip = true;
+        precipKind = ObjectKind::Rain;
+        fx.thunderstorm = true;
+    } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Rain;
     }
 }
 
-bool TryParseWeatherPayload(const std::string& json, PrecipKind& outPrecip, EffectFlags& outFx,
-                            double& outWindSpeed, WindDir& outWindDir) {
+bool ParseWeatherJson(const std::string& json, bool& hasPrecip, ObjectKind& precipKind,
+                      GeneralEffectsState& fx, double& windSpeed, int& windSign) {
     auto extractNumber = [&](const std::string& key, double& val) -> bool {
         size_t pos = json.find("\"" + key + "\"");
         if (pos == std::string::npos) return false;
@@ -607,63 +953,53 @@ bool TryParseWeatherPayload(const std::string& json, PrecipKind& outPrecip, Effe
         return true;
     };
 
-    double speed = 0.0;
-    if (extractNumber("wind_speed_10m", speed) || extractNumber("windspeed", speed) || extractNumber("wind_speed", speed)) {
-        outWindSpeed = std::max(0.0, speed);
+    double spd = 0.0;
+    if (extractNumber("wind_speed_10m", spd) || extractNumber("windspeed", spd) || extractNumber("wind_speed", spd)) {
+        windSpeed = std::max(0.0, spd);
     }
 
     double deg = -1.0;
     if (extractNumber("wind_direction_10m", deg) || extractNumber("winddirection", deg) || extractNumber("wind_deg", deg)) {
-        outWindDir = (outWindSpeed > 0.2) ? WindDirectionDegToDir(deg) : WindDir::None;
-    }
-
-    std::string dirStr;
-    if (outWindDir == WindDir::None && (extractString("wind_dir", dirStr) || extractString("wind_direction", dirStr))) {
-        std::wstring wdir(dirStr.begin(), dirStr.end());
-        outWindDir = (outWindSpeed > 0.2) ? ParseWindDir(wdir) : WindDir::None;
+        windSign = (windSpeed > 0.2) ? WindDegToSign(deg) : 0;
+    } else {
+        windSign = 0;
     }
 
     double wmo = -999.0;
     if (extractNumber("weather_code", wmo) || extractNumber("weathercode", wmo)) {
-        ApplyWmoCode(static_cast<int>(wmo), outPrecip, outFx);
-        if (outWindSpeed >= 35.0) outFx.windSwirls = true;
+        ApplyForecastCode(static_cast<int>(wmo), hasPrecip, precipKind, fx);
         return true;
     }
 
     std::string cond;
     if (extractString("condition", cond) || extractString("weather", cond)) {
         for (auto& c : cond) c = static_cast<char>(tolower(c));
-        outFx = EffectFlags{};
-        outPrecip = PrecipKind::None;
-        if (cond.find("hail") != std::string::npos) outPrecip = PrecipKind::Hail;
-        else if (cond.find("sleet") != std::string::npos) outPrecip = PrecipKind::Sleet;
-        else if (cond.find("snow") != std::string::npos) outPrecip = PrecipKind::Snow;
-        else if (cond.find("heavy_rain") != std::string::npos || cond.find("storm") != std::string::npos) outPrecip = PrecipKind::HeavyRain;
-        else if (cond.find("rain") != std::string::npos) outPrecip = PrecipKind::Rain;
+        hasPrecip = false;
+        fx = GeneralEffectsState{};
+        if (cond.find("hail") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Hail; }
+        else if (cond.find("snow") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Snow; }
+        else if (cond.find("rain") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Rain; }
 
-        if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) outFx.fog = true;
-        if (cond.find("rainbow") != std::string::npos) outFx.rainbow = true;
-        if (cond.find("lightning") != std::string::npos || cond.find("thunder") != std::string::npos) outFx.lightning = true;
-        if (cond.find("wind") != std::string::npos || cond.find("swirl") != std::string::npos || outWindSpeed >= 35.0) {
-            outFx.windSwirls = true;
-        }
+        if (cond.find("clear") != std::string::npos || cond.find("sun") != std::string::npos) fx.clear = true;
+        if (cond.find("partly") != std::string::npos) fx.partlyCloudy = true;
+        if (cond.find("overcast") != std::string::npos || cond.find("cloud") != std::string::npos) fx.overcast = true;
+        if (cond.find("dust") != std::string::npos) fx.dust = true;
+        if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) fx.fog = true;
+        if (cond.find("smog") != std::string::npos) fx.smog = true;
+        if (cond.find("rainbow") != std::string::npos) fx.rainbow = true;
+        if (cond.find("halo") != std::string::npos) fx.halo = true;
+        if (cond.find("thunder") != std::string::npos || cond.find("storm") != std::string::npos) fx.thunderstorm = true;
+        if (cond.find("aurora") != std::string::npos) fx.aurora = true;
+        if (cond.find("mirage") != std::string::npos) fx.mirage = true;
         return true;
     }
     return false;
 }
 
-bool FetchFromSource(const std::wstring& src, const Settings& cfg, PrecipKind& outPrecip,
-                     EffectFlags& outFx, double& outWindSpeed, WindDir& outWindDir) {
-    if (src == L"manual") {
-        outPrecip = cfg.manualWeatherPrecip;
-        outFx.fog = cfg.manualFog;
-        outFx.rainbow = cfg.manualRainbow;
-        outFx.lightning = cfg.manualLightning;
-        outFx.windSwirls = cfg.manualWindSwirls;
-        outWindSpeed = cfg.manualWindSpeed;
-        outWindDir = cfg.manualWindDirection;
-        return true;
-    }
+bool FetchWeatherSource(const std::wstring& src, const Settings& cfg, bool& hasPrecip,
+                        ObjectKind& precipKind, GeneralEffectsState& fx,
+                        double& windSpeed, int& windSign) {
+    if (src == L"off") return false;
     if (src == L"open_meteo") {
         std::wstringstream url;
         url << L"https://api.open-meteo.com/v1/forecast?latitude=" << cfg.latitude
@@ -671,13 +1007,13 @@ bool FetchFromSource(const std::wstring& src, const Settings& cfg, PrecipKind& o
             << L"¤t=weather_code,wind_speed_10m,wind_direction_10m";
         std::string body = HttpGetUtf8(url.str());
         if (body.empty()) return false;
-        return TryParseWeatherPayload(body, outPrecip, outFx, outWindSpeed, outWindDir);
+        return ParseWeatherJson(body, hasPrecip, precipKind, fx, windSpeed, windSign);
     }
     if (src == L"custom_api") {
         if (cfg.customApiUrl.empty()) return false;
         std::string body = HttpGetUtf8(cfg.customApiUrl);
         if (body.empty()) return false;
-        return TryParseWeatherPayload(body, outPrecip, outFx, outWindSpeed, outWindDir);
+        return ParseWeatherJson(body, hasPrecip, precipKind, fx, windSpeed, windSign);
     }
     if (src == L"local_file") {
         if (cfg.localWeatherPath.empty()) return false;
@@ -694,7 +1030,7 @@ bool FetchFromSource(const std::wstring& src, const Settings& cfg, PrecipKind& o
         }
         CloseHandle(hFile);
         if (content.empty()) return false;
-        return TryParseWeatherPayload(content, outPrecip, outFx, outWindSpeed, outWindDir);
+        return ParseWeatherJson(content, hasPrecip, precipKind, fx, windSpeed, windSign);
     }
     return false;
 }
@@ -709,23 +1045,24 @@ void WeatherWorkerLoop() {
             intervalSec = cfg.updateIntervalMin * 60;
         }
 
-        if (cfg.controlMode == L"auto") {
-            PrecipKind p = PrecipKind::None;
-            EffectFlags fx;
-            double windSpd = 0.0;
-            WindDir windDir = WindDir::None;
+        bool hasP = false;
+        ObjectKind pKind = ObjectKind::Rain;
+        GeneralEffectsState fx;
+        double wSpd = 0.0;
+        int wSign = 0;
 
-            bool ok = FetchFromSource(cfg.primarySource, cfg, p, fx, windSpd, windDir);
-            if (!ok && cfg.fallbackSource != cfg.primarySource) {
-                ok = FetchFromSource(cfg.fallbackSource, cfg, p, fx, windSpd, windDir);
-            }
-            if (ok) {
-                std::lock_guard<std::mutex> lock(g_mutex);
-                g_autoPrecip = p;
-                g_autoEffects = fx;
-                g_autoWindSpeedKmh = windSpd;
-                g_autoWindDir = windDir;
-            }
+        bool ok = FetchWeatherSource(cfg.primarySource, cfg, hasP, pKind, fx, wSpd, wSign);
+        if (!ok && cfg.fallbackSource != L"off" && cfg.fallbackSource != cfg.primarySource) {
+            ok = FetchWeatherSource(cfg.fallbackSource, cfg, hasP, pKind, fx, wSpd, wSign);
+        }
+
+        if (ok) {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            g_hasForecastPrecip = hasP;
+            g_forecastPrecip = pKind;
+            g_forecastEffects = fx;
+            g_forecastWindSpeedKmh = wSpd;
+            g_forecastWindDirSign = wSign;
         }
 
         for (int i = 0; i < intervalSec && g_running.load(); ++i) {
@@ -880,96 +1217,98 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-D2D1_COLOR_F ResolveKindColor(const Settings& cfg, PrecipKind kind) {
-    switch (kind) {
-        case PrecipKind::Rain:
-        case PrecipKind::HeavyRain: return cfg.colorRain;
-        case PrecipKind::Snow:
-        case PrecipKind::Sleet: return cfg.colorSnow;
-        case PrecipKind::Hail: return cfg.colorHail;
-        case PrecipKind::Sakura: return cfg.colorSakura;
-        case PrecipKind::AutumnLeaves: return cfg.colorLeaves;
-        case PrecipKind::ExtraSnow: return cfg.colorExtraSnow;
-        default: return cfg.colorSnow;
+int GetIntensityForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
+    if (!isSeasonal) {
+        if (kind == ObjectKind::Rain) return cfg.rainIntensity;
+        if (kind == ObjectKind::Snow) return cfg.snowIntensity;
+        if (kind == ObjectKind::Hail) return cfg.hailIntensity;
+    } else {
+        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesIntensity;
+        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowIntensity;
+        if (kind == ObjectKind::Petals) return cfg.petalsIntensity;
     }
+    return 25;
 }
 
-void SpawnFallingParticle(FallingParticle& p, std::mt19937& rng, PrecipKind kind,
-                          bool fromSeasonGroup, double scale, float windVx, bool randomY) {
-    std::uniform_real_distribution<float> xDist(-80.0f, static_cast<float>(g_canvasWidth) + 80.0f);
+int GetMaxAccumulatedForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
+    if (!isSeasonal) {
+        if (kind == ObjectKind::Rain) return cfg.rainMaxAccumulated;
+        if (kind == ObjectKind::Snow) return cfg.snowMaxAccumulated;
+        if (kind == ObjectKind::Hail) return cfg.hailMaxAccumulated;
+    } else {
+        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesMaxAccumulated;
+        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowMaxAccumulated;
+        if (kind == ObjectKind::Petals) return cfg.petalsMaxAccumulated;
+    }
+    return 0;
+}
+
+double GetLifetimeMinForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
+    if (!isSeasonal) {
+        if (kind == ObjectKind::Rain) return cfg.rainLifetimeMin;
+        if (kind == ObjectKind::Snow) return cfg.snowLifetimeMin;
+        if (kind == ObjectKind::Hail) return cfg.hailLifetimeMin;
+    } else {
+        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesLifetimeMin;
+        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowLifetimeMin;
+        if (kind == ObjectKind::Petals) return cfg.petalsLifetimeMin;
+    }
+    return -1.0;
+}
+
+D2D1_COLOR_F GetColorForKind(const Settings& cfg, ObjectKind kind) {
+    switch (kind) {
+        case ObjectKind::Rain: return cfg.colorRain;
+        case ObjectKind::Snow: return cfg.colorSnow;
+        case ObjectKind::Hail: return cfg.colorHail;
+        case ObjectKind::AutumnLeaves: return cfg.colorAutumnLeaves;
+        case ObjectKind::ExtraSnow: return cfg.colorExtraSnow;
+        case ObjectKind::Petals: return cfg.colorPetals;
+    }
+    return cfg.colorSnow;
+}
+
+void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, bool isSeasonal,
+                      double scale, float vx, float vy, bool randomY) {
+    std::uniform_real_distribution<float> xDist(-60.0f, static_cast<float>(g_canvasWidth) + 60.0f);
     std::uniform_real_distribution<float> yDist(0.0f, static_cast<float>(g_canvasHeight));
     std::uniform_real_distribution<float> phaseDist(0.0f, 6.2831853f);
-    std::uniform_real_distribution<float> alphaDist(0.65f, 0.96f);
+    std::uniform_real_distribution<float> alphaDist(0.68f, 0.96f);
 
-    p.kind = kind;
-    p.fromSeasonGroup = fromSeasonGroup;
-    p.x = xDist(rng);
-    p.y = randomY ? yDist(rng) : -24.0f;
-    p.swayPhase = phaseDist(rng);
-    p.angle = phaseDist(rng);
-    p.alpha = alphaDist(rng);
+    item.kind = kind;
+    item.isSeasonalLayer = isSeasonal;
+    item.x = xDist(rng);
+    item.y = randomY ? yDist(rng) : -24.0f;
+    item.swayPhase = phaseDist(rng);
+    item.angle = phaseDist(rng);
+    item.alpha = alphaDist(rng);
 
     float s = static_cast<float>(scale);
-    p.vx = windVx;
-
-    switch (kind) {
-        case PrecipKind::Rain:
-            p.size = 12.0f * s;
-            p.vy = 640.0f * s;
-            p.vx = windVx * 1.4f;
-            p.spin = 0.0f;
-            break;
-        case PrecipKind::HeavyRain:
-            p.size = 18.0f * s;
-            p.vy = 880.0f * s;
-            p.vx = windVx * 1.7f;
-            p.spin = 0.0f;
-            break;
-        case PrecipKind::Snow:
-        case PrecipKind::ExtraSnow:
-            p.size = (5.0f + (rng() % 45) * 0.1f) * s;
-            p.vy = (55.0f + (rng() % 35)) * s;
-            p.vx = windVx * 0.6f;
-            p.spin = ((rng() % 100) - 50) * 0.02f;
-            break;
-        case PrecipKind::Sleet:
-            p.size = (5.0f + (rng() % 30) * 0.1f) * s;
-            p.vy = (210.0f + (rng() % 70)) * s;
-            p.vx = windVx * 1.1f;
-            p.spin = ((rng() % 100) - 50) * 0.04f;
-            break;
-        case PrecipKind::Hail:
-            p.size = (5.5f + (rng() % 35) * 0.1f) * s;
-            p.vy = (440.0f + (rng() % 120)) * s;
-            p.vx = windVx * 1.2f;
-            p.spin = ((rng() % 100) - 50) * 0.05f;
-            break;
-        case PrecipKind::Sakura:
-            p.size = (8.0f + (rng() % 40) * 0.1f) * s;
-            p.vy = (48.0f + (rng() % 28)) * s;
-            p.vx = windVx * 0.8f;
-            p.spin = ((rng() % 100) - 50) * 0.04f;
-            break;
-        case PrecipKind::AutumnLeaves:
-            p.size = (9.0f + (rng() % 55) * 0.1f) * s;
-            p.vy = (62.0f + (rng() % 38)) * s;
-            p.vx = windVx * 0.85f;
-            p.spin = ((rng() % 100) - 50) * 0.05f;
-            break;
-        default:
-            break;
+    if (kind == ObjectKind::Rain) {
+        item.size = 13.0f * s;
+        item.spin = 0.0f;
+    } else if (kind == ObjectKind::Hail) {
+        item.size = (5.5f + (rng() % 30) * 0.1f) * s;
+        item.spin = ((rng() % 100) - 50) * 0.05f;
+    } else if (kind == ObjectKind::Petals) {
+        item.size = (8.0f + (rng() % 35) * 0.1f) * s;
+        item.spin = ((rng() % 100) - 50) * 0.04f;
+    } else if (kind == ObjectKind::AutumnLeaves) {
+        item.size = (9.5f + (rng() % 45) * 0.1f) * s;
+        item.spin = ((rng() % 100) - 50) * 0.05f;
+    } else {
+        item.size = (5.5f + (rng() % 40) * 0.1f) * s;
+        item.spin = ((rng() % 100) - 50) * 0.025f;
     }
+    (void)vx;
+    (void)vy;
 }
 
-void DrawObjectShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
-                     PrecipKind kind, float x, float y, float size, float angle, float vx, float alpha) {
+void DrawItemShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
+                   ObjectKind kind, float x, float y, float size, float angle, float vx, float alpha) {
     brush->SetOpacity(std::clamp(alpha, 0.05f, 1.0f));
-    if (kind == PrecipKind::Rain || kind == PrecipKind::HeavyRain) {
-        rt->DrawLine(
-            D2D1::Point2F(x, y),
-            D2D1::Point2F(x + vx * 0.02f, y + size),
-            brush,
-            (kind == PrecipKind::HeavyRain) ? 2.0f : 1.4f);
+    if (kind == ObjectKind::Rain) {
+        rt->DrawLine(D2D1::Point2F(x, y), D2D1::Point2F(x + vx * 0.02f, y + size), brush, 1.5f);
         return;
     }
 
@@ -977,11 +1316,11 @@ void DrawObjectShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
     rt->GetTransform(&oldXform);
     rt->SetTransform(D2D1::Matrix3x2F::Rotation(angle * 57.29578f, D2D1::Point2F(x, y)) * oldXform);
 
-    if (kind == PrecipKind::Sakura) {
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.65f, size * 0.36f), brush);
-    } else if (kind == PrecipKind::AutumnLeaves) {
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.75f, size * 0.38f), brush);
-    } else if (kind == PrecipKind::Hail) {
+    if (kind == ObjectKind::Petals) {
+        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.65f, size * 0.35f), brush);
+    } else if (kind == ObjectKind::AutumnLeaves) {
+        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.78f, size * 0.38f), brush);
+    } else if (kind == ObjectKind::Hail) {
         rt->FillRectangle(D2D1::RectF(x - size * 0.45f, y - size * 0.45f, x + size * 0.45f, y + size * 0.45f), brush);
     } else {
         rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.5f, size * 0.5f), brush);
@@ -1058,7 +1397,18 @@ bool EnsureLayeredSurface(int width, int height) {
     return true;
 }
 
-void RenderFrame(const Settings& cfg, const EffectFlags& fx, int bottomLimitY) {
+void DrawTintRect(ID2D1DCRenderTarget* rt, D2D1_COLOR_F col, float factor) {
+    col.a = std::clamp(col.a * factor, 0.0f, 0.85f);
+    if (col.a <= 0.004f) return;
+    ID2D1SolidColorBrush* b = nullptr;
+    rt->CreateSolidColorBrush(col, &b);
+    if (b) {
+        rt->FillRectangle(D2D1::RectF(0.0f, 0.0f, static_cast<float>(g_canvasWidth), static_cast<float>(g_canvasHeight)), b);
+        b->Release();
+    }
+}
+
+void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx) {
     if (!g_overlayHwnd || !IsWindow(g_overlayHwnd)) return;
     if (!EnsureLayeredSurface(g_canvasWidth, g_canvasHeight)) return;
 
@@ -1068,100 +1418,118 @@ void RenderFrame(const Settings& cfg, const EffectFlags& fx, int bottomLimitY) {
     g_dcRenderTarget->BeginDraw();
     g_dcRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
 
-    float fxStrength = static_cast<float>(cfg.atmosphereOpacity) / 100.0f;
+    float k = static_cast<float>(cfg.effectsIntensity) / 25.0f;
 
-    // [C] Туман
-    if (fx.fog && fxStrength > 0.005f) {
-        ID2D1SolidColorBrush* fogBrush = nullptr;
-        D2D1_COLOR_F fc = cfg.colorFog;
-        fc.a = std::clamp(fc.a * (fxStrength * 1.4f), 0.0f, 0.85f);
-        g_dcRenderTarget->CreateSolidColorBrush(fc, &fogBrush);
-        if (fogBrush) {
+    if (fx.clear) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomClearColor ? cfg.colorClear : D2D1::ColorF(1.0f, 0.92f, 0.65f, 0.14f), k);
+    }
+    if (fx.partlyCloudy) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomPartlyCloudyColor ? cfg.colorPartlyCloudy : D2D1::ColorF(0.88f, 0.91f, 0.95f, 0.16f), k);
+    }
+    if (fx.overcast) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomOvercastColor ? cfg.colorOvercast : D2D1::ColorF(0.52f, 0.56f, 0.62f, 0.26f), k);
+    }
+    if (fx.dust) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomDustColor ? cfg.colorDust : D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.20f), k);
+    }
+    if (fx.fog) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomFogColor ? cfg.colorFog : D2D1::ColorF(0.82f, 0.86f, 0.90f, 0.28f), k);
+    }
+    if (fx.smog) {
+        DrawTintRect(g_dcRenderTarget, cfg.hasCustomSmogColor ? cfg.colorSmog : D2D1::ColorF(0.54f, 0.48f, 0.40f, 0.30f), k);
+    }
+    if (fx.mirage) {
+        D2D1_COLOR_F mc = cfg.hasCustomMirageColor ? cfg.colorMirage : D2D1::ColorF(0.98f, 0.86f, 0.66f, 0.22f);
+        mc.a = std::clamp(mc.a * k, 0.0f, 0.7f);
+        ID2D1SolidColorBrush* mb = nullptr;
+        g_dcRenderTarget->CreateSolidColorBrush(mc, &mb);
+        if (mb) {
+            float topBand = (bottomLimitY - g_canvasTop) * 0.78f;
             g_dcRenderTarget->FillRectangle(
-                D2D1::RectF(0.0f, 0.0f, static_cast<float>(g_canvasWidth), static_cast<float>(g_canvasHeight)),
-                fogBrush);
-            fogBrush->Release();
+                D2D1::RectF(0.0f, topBand, static_cast<float>(g_canvasWidth), static_cast<float>(bottomLimitY - g_canvasTop)),
+                mb);
+            mb->Release();
         }
     }
-
-    // [C] Радуга
-    if (fx.rainbow && fxStrength > 0.005f) {
+    if (fx.aurora) {
+        D2D1_COLOR_F ac = cfg.hasCustomAuroraColor ? cfg.colorAurora : D2D1::ColorF(0.22f, 0.92f, 0.62f, 0.24f);
+        ac.a = std::clamp(ac.a * k, 0.0f, 0.75f);
+        ID2D1SolidColorBrush* ab = nullptr;
+        g_dcRenderTarget->CreateSolidColorBrush(ac, &ab);
+        if (ab) {
+            g_dcRenderTarget->FillRectangle(
+                D2D1::RectF(0.0f, 0.0f, static_cast<float>(g_canvasWidth), g_canvasHeight * 0.24f),
+                ab);
+            ab->Release();
+        }
+    }
+    if (fx.halo) {
+        D2D1_COLOR_F hc = cfg.hasCustomHaloColor ? cfg.colorHalo : D2D1::ColorF(0.98f, 0.95f, 0.82f, 0.28f);
+        hc.a = std::clamp(hc.a * k, 0.0f, 0.8f);
+        ID2D1SolidColorBrush* hb = nullptr;
+        g_dcRenderTarget->CreateSolidColorBrush(hc, &hb);
+        if (hb) {
+            g_dcRenderTarget->DrawEllipse(
+                D2D1::Ellipse(D2D1::Point2F(g_canvasWidth * 0.5f, g_canvasHeight * 0.25f), 190.0f, 190.0f),
+                hb,
+                8.0f);
+            hb->Release();
+        }
+    }
+    if (fx.rainbow) {
         const D2D1_COLOR_F bands[6] = {
-            D2D1::ColorF(1.0f, 0.25f, 0.25f, 0.22f * fxStrength),
-            D2D1::ColorF(1.0f, 0.62f, 0.18f, 0.22f * fxStrength),
-            D2D1::ColorF(1.0f, 0.92f, 0.25f, 0.22f * fxStrength),
-            D2D1::ColorF(0.28f, 0.85f, 0.38f, 0.22f * fxStrength),
-            D2D1::ColorF(0.25f, 0.62f, 1.0f, 0.22f * fxStrength),
-            D2D1::ColorF(0.62f, 0.32f, 0.95f, 0.22f * fxStrength)
+            D2D1::ColorF(1.0f, 0.24f, 0.24f, 0.22f * k),
+            D2D1::ColorF(1.0f, 0.60f, 0.16f, 0.22f * k),
+            D2D1::ColorF(1.0f, 0.92f, 0.22f, 0.22f * k),
+            D2D1::ColorF(0.25f, 0.85f, 0.36f, 0.22f * k),
+            D2D1::ColorF(0.22f, 0.60f, 1.0f, 0.22f * k),
+            D2D1::ColorF(0.62f, 0.30f, 0.95f, 0.22f * k)
         };
         float cx = g_canvasWidth * 0.5f;
         float cy = g_canvasHeight * 0.95f;
         float baseR = std::min(g_canvasWidth, g_canvasHeight) * 0.68f;
         for (int b = 0; b < 6; ++b) {
+            D2D1_COLOR_F col = cfg.hasCustomRainbowColor ? cfg.colorRainbow : bands[b];
+            if (cfg.hasCustomRainbowColor) col.a = std::clamp(col.a * k * (1.0f - b * 0.1f), 0.0f, 0.75f);
             ID2D1SolidColorBrush* rb = nullptr;
-            g_dcRenderTarget->CreateSolidColorBrush(bands[b], &rb);
+            g_dcRenderTarget->CreateSolidColorBrush(col, &rb);
             if (rb) {
                 float r = baseR - b * 14.0f;
-                g_dcRenderTarget->DrawEllipse(
-                    D2D1::Ellipse(D2D1::Point2F(cx, cy), r, r * 0.72f),
-                    rb,
-                    13.0f);
+                g_dcRenderTarget->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), r, r * 0.72f), rb, 13.0f);
                 rb->Release();
             }
         }
     }
-
-    // [C] Видимые завихрения ветра
-    if (fx.windSwirls && !g_swirls.empty()) {
-        ID2D1SolidColorBrush* sb = nullptr;
-        D2D1_COLOR_F sc = cfg.colorSwirl;
-        sc.a = std::clamp(sc.a * (0.4f + fxStrength), 0.05f, 0.9f);
-        g_dcRenderTarget->CreateSolidColorBrush(sc, &sb);
-        if (sb) {
-            for (const auto& sw : g_swirls) {
-                g_dcRenderTarget->DrawEllipse(
-                    D2D1::Ellipse(D2D1::Point2F(sw.x, sw.y), sw.radius * 1.4f, sw.radius * 0.45f),
-                    sb,
-                    1.6f);
-            }
-            sb->Release();
-        }
-    }
-
-    // [C] Молнии
-    if (fx.lightning && g_lightning.activeTimer > 0.0f) {
-        ID2D1SolidColorBrush* lb = nullptr;
-        D2D1_COLOR_F lc = cfg.colorLightning;
-        lc.a = std::clamp(g_lightning.activeTimer * 3.5f, 0.0f, 1.0f);
-        g_dcRenderTarget->CreateSolidColorBrush(lc, &lb);
-        if (lb) {
+    if (fx.thunderstorm && g_lightning.timer > 0.0f) {
+        D2D1_COLOR_F tc = cfg.hasCustomThunderstormColor ? cfg.colorThunderstorm : D2D1::ColorF(0.84f, 0.92f, 1.0f, 0.95f);
+        tc.a = std::clamp(g_lightning.timer * 4.0f * std::max(0.2f, k), 0.0f, 1.0f);
+        ID2D1SolidColorBrush* tb = nullptr;
+        g_dcRenderTarget->CreateSolidColorBrush(tc, &tb);
+        if (tb) {
             float curX = g_lightning.xStart;
             float curY = 0.0f;
             int segs = 12;
             float stepY = (bottomLimitY - g_canvasTop) * 0.75f / segs;
             for (int i = 0; i < segs; ++i) {
                 float t = static_cast<float>(i + 1) / segs;
-                float nextX = g_lightning.xStart + (g_lightning.xEnd - g_lightning.xStart) * t +
-                              ((i % 2 == 0) ? 18.0f : -18.0f);
+                float nextX = g_lightning.xStart + (g_lightning.xEnd - g_lightning.xStart) * t + ((i % 2 == 0) ? 18.0f : -18.0f);
                 float nextY = curY + stepY;
-                g_dcRenderTarget->DrawLine(D2D1::Point2F(curX, curY), D2D1::Point2F(nextX, nextY), lb, 3.0f);
+                g_dcRenderTarget->DrawLine(D2D1::Point2F(curX, curY), D2D1::Point2F(nextX, nextY), tb, 3.0f);
                 curX = nextX;
                 curY = nextY;
             }
-            lb->Release();
+            tb->Release();
         }
     }
 
-    // Падающие объекты (без влияния курсора и без срыва от окон)
-    ID2D1SolidColorBrush* itemBrush = nullptr;
-    g_dcRenderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &itemBrush);
-    if (itemBrush) {
+    ID2D1SolidColorBrush* brush = nullptr;
+    g_dcRenderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &brush);
+    if (brush) {
         for (const auto& p : g_falling) {
-            itemBrush->SetColor(ResolveKindColor(cfg, p.kind));
-            DrawObjectShape(g_dcRenderTarget, itemBrush, p.kind, p.x, p.y, p.size, p.angle, p.vx, p.alpha);
+            brush->SetColor(GetColorForKind(cfg, p.kind));
+            DrawItemShape(g_dcRenderTarget, brush, p.kind, p.x, p.y, p.size, p.angle, precipVx, p.alpha);
         }
 
-        // Опавшие объекты на верхнем крае окон и внизу экрана (сохраняют свой размер и форму)
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
         for (const auto& fo : g_fallen) {
             float drawX = fo.relX;
@@ -1174,11 +1542,11 @@ void RenderFrame(const Settings& cfg, const EffectFlags& fx, int bottomLimitY) {
             } else if (!fo.fallingOff) {
                 drawY = bottomRelY + fo.relY;
             }
-            itemBrush->SetColor(ResolveKindColor(cfg, fo.kind));
-            DrawObjectShape(g_dcRenderTarget, itemBrush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
+            brush->SetColor(GetColorForKind(cfg, fo.kind));
+            DrawItemShape(g_dcRenderTarget, brush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
         }
 
-        itemBrush->Release();
+        brush->Release();
     }
 
     if (FAILED(g_dcRenderTarget->EndDraw())) {
@@ -1197,10 +1565,16 @@ void RenderFrame(const Settings& cfg, const EffectFlags& fx, int bottomLimitY) {
     UpdateLayeredWindow(g_overlayHwnd, nullptr, &ptDst, &sizeWnd, g_memDC, &ptSrc, 0, &blend, ULW_ALPHA);
 }
 
-float WindToHorizontalSpeed(WindDir dir, double speedVal) {
-    if (dir == WindDir::None || speedVal <= 0.1) return 0.0f;
-    float mag = static_cast<float>(speedVal) * 3.2f;
-    return (dir == WindDir::Left) ? -mag : mag;
+float ComputeHorizontalSpeedPxPerSec(FallDirMode dirMode, double mpsSpeed, int forecastSign, double forecastWindKmh) {
+    float basePx = static_cast<float>(mpsSpeed) * 26.0f;
+    if (dirMode == FallDirMode::Down) return 0.0f;
+    if (dirMode == FallDirMode::DownLeft) return -basePx;
+    if (dirMode == FallDirMode::DownRight) return basePx;
+
+    // FallDirMode::Auto
+    if (forecastSign == 0 || forecastWindKmh <= 0.2) return 0.0f;
+    float windFactor = std::clamp(static_cast<float>(forecastWindKmh) / 20.0f, 0.25f, 2.5f);
+    return static_cast<float>(forecastSign) * basePx * windFactor;
 }
 
 void RenderWorkerLoop() {
@@ -1217,17 +1591,19 @@ void RenderWorkerLoop() {
 
     while (g_running.load()) {
         Settings cfg;
-        PrecipKind autoP;
-        EffectFlags autoFx;
-        double autoWindSpd;
-        WindDir autoWindDir;
+        bool hasForecastP = false;
+        ObjectKind forecastP = ObjectKind::Rain;
+        GeneralEffectsState forecastFx;
+        double forecastWindSpd = 0.0;
+        int forecastWindSign = 0;
         {
             std::lock_guard<std::mutex> lock(g_mutex);
             cfg = g_settings;
-            autoP = g_autoPrecip;
-            autoFx = g_autoEffects;
-            autoWindSpd = g_autoWindSpeedKmh;
-            autoWindDir = g_autoWindDir;
+            hasForecastP = g_hasForecastPrecip;
+            forecastP = g_forecastPrecip;
+            forecastFx = g_forecastEffects;
+            forecastWindSpd = g_forecastWindSpeedKmh;
+            forecastWindSign = g_forecastWindDirSign;
         }
 
         if (cfg.pauseOnFullscreen && IsFullscreenAppActive()) {
@@ -1261,106 +1637,97 @@ void RenderWorkerLoop() {
         lastTime = now;
         dt = std::clamp(dt, 0.001f, 0.05f);
 
-        // Определяем активные группы A, B, C
-        PrecipKind groupAKind = PrecipKind::None;
-        EffectFlags activeFx;
-        float groupAWindVx = 0.0f;
+        // Определяем осадки
+        bool activePrecip = false;
+        ObjectKind precipKind = ObjectKind::Rain;
+        if (cfg.precipitationMode == PrecipMode::Rain) { activePrecip = true; precipKind = ObjectKind::Rain; }
+        else if (cfg.precipitationMode == PrecipMode::Snow) { activePrecip = true; precipKind = ObjectKind::Snow; }
+        else if (cfg.precipitationMode == PrecipMode::Hail) { activePrecip = true; precipKind = ObjectKind::Hail; }
+        else if (cfg.precipitationMode == PrecipMode::Auto && hasForecastP) { activePrecip = true; precipKind = forecastP; }
 
-        if (cfg.controlMode == L"auto") {
-            if (cfg.enableGroupA) groupAKind = autoP;
-            activeFx = autoFx;
-            groupAWindVx = WindToHorizontalSpeed(autoWindDir, autoWindSpd);
+        // Определяем сезонные/общие падающие объекты
+        bool activeSeasonal = false;
+        ObjectKind seasonalKind = ObjectKind::AutumnLeaves;
+        if (cfg.seasonalObjectMode == SeasonalMode::AutumnLeaves) { activeSeasonal = true; seasonalKind = ObjectKind::AutumnLeaves; }
+        else if (cfg.seasonalObjectMode == SeasonalMode::ExtraSnow) { activeSeasonal = true; seasonalKind = ObjectKind::ExtraSnow; }
+        else if (cfg.seasonalObjectMode == SeasonalMode::Petals) { activeSeasonal = true; seasonalKind = ObjectKind::Petals; }
+        else if (cfg.seasonalObjectMode == SeasonalMode::Auto) {
+            SeasonalMode detected = DetectSeasonByDates(cfg);
+            if (detected == SeasonalMode::AutumnLeaves) { activeSeasonal = true; seasonalKind = ObjectKind::AutumnLeaves; }
+            else if (detected == SeasonalMode::ExtraSnow) { activeSeasonal = true; seasonalKind = ObjectKind::ExtraSnow; }
+            else if (detected == SeasonalMode::Petals) { activeSeasonal = true; seasonalKind = ObjectKind::Petals; }
+        }
+
+        // Определяем общие эффекты (каждый независимо: auto / on / off)
+        auto resolveEffect = [&](TriStateMode mode, bool autoVal) -> bool {
+            if (mode == TriStateMode::On) return true;
+            if (mode == TriStateMode::Off) return false;
+            return autoVal;
+        };
+        GeneralEffectsState activeFx;
+        activeFx.clear = resolveEffect(cfg.effectClear, forecastFx.clear);
+        activeFx.partlyCloudy = resolveEffect(cfg.effectPartlyCloudy, forecastFx.partlyCloudy);
+        activeFx.overcast = resolveEffect(cfg.effectOvercast, forecastFx.overcast);
+        activeFx.dust = resolveEffect(cfg.effectDust, forecastFx.dust);
+        activeFx.fog = resolveEffect(cfg.effectFog, forecastFx.fog);
+        activeFx.smog = resolveEffect(cfg.effectSmog, forecastFx.smog);
+        activeFx.rainbow = resolveEffect(cfg.effectRainbow, forecastFx.rainbow);
+        activeFx.halo = resolveEffect(cfg.effectHalo, forecastFx.halo);
+        activeFx.thunderstorm = resolveEffect(cfg.effectThunderstorm, forecastFx.thunderstorm);
+        activeFx.aurora = resolveEffect(cfg.effectAurora, forecastFx.aurora);
+        activeFx.mirage = resolveEffect(cfg.effectMirage, forecastFx.mirage);
+
+        if (activeFx.thunderstorm) {
+            if (g_lightning.timer > 0.0f) {
+                g_lightning.timer = std::max(0.0f, g_lightning.timer - dt);
+            } else if ((static_cast<float>(rng() % 10000) / 10000.0f) < 0.35f * dt) {
+                g_lightning.timer = 0.22f;
+                g_lightning.xStart = static_cast<float>(100 + rng() % std::max(120, g_canvasWidth - 200));
+                g_lightning.xEnd = g_lightning.xStart + static_cast<float>((rng() % 160) - 80);
+            }
         } else {
-            if (cfg.enableGroupA) groupAKind = cfg.manualWeatherPrecip;
-            activeFx.fog = cfg.manualFog;
-            activeFx.rainbow = cfg.manualRainbow;
-            activeFx.lightning = cfg.manualLightning;
-            activeFx.windSwirls = cfg.manualWindSwirls;
-            groupAWindVx = WindToHorizontalSpeed(cfg.manualWindDirection, cfg.manualWindSpeed);
+            g_lightning.timer = 0.0f;
         }
 
-        PrecipKind groupBKind = PrecipKind::None;
-        if (cfg.groupBMode == L"manual") {
-            groupBKind = cfg.manualSeasonType;
-        } else if (cfg.groupBMode == L"auto_season") {
-            groupBKind = DetectCurrentSeasonPrecip();
-        }
-        float groupBWindVx = WindToHorizontalSpeed(cfg.seasonWindDirection, cfg.seasonWindStrength);
+        float precipVx = ComputeHorizontalSpeedPxPerSec(cfg.precipFallDirection, cfg.precipFallSpeedMps, forecastWindSign, forecastWindSpd);
+        float precipVy = static_cast<float>(cfg.precipFallSpeedMps) * 42.0f * static_cast<float>(cfg.particleScale);
 
-        size_t targetA = (groupAKind != PrecipKind::None)
-            ? static_cast<size_t>((g_canvasWidth / 1000.0) * cfg.precipDensity)
+        float seasonalVx = ComputeHorizontalSpeedPxPerSec(cfg.seasonalFallDirection, cfg.seasonalFallSpeedMps, forecastWindSign, forecastWindSpd);
+        float seasonalVy = static_cast<float>(cfg.seasonalFallSpeedMps) * 32.0f * static_cast<float>(cfg.particleScale);
+
+        size_t targetP = activePrecip
+            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, precipKind, false) * 1.4)
             : 0;
-        size_t targetB = (groupBKind != PrecipKind::None)
-            ? static_cast<size_t>((g_canvasWidth / 1000.0) * cfg.seasonDensity)
+        size_t targetS = activeSeasonal
+            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, seasonalKind, true) * 1.2)
             : 0;
 
-        // Синхронизируем списки падающих частиц по группам A и B
-        std::vector<FallingParticle> nextFalling;
-        nextFalling.reserve(targetA + targetB);
-        size_t curA = 0, curB = 0;
+        std::vector<FallingItem> nextFalling;
+        nextFalling.reserve(targetP + targetS);
+        size_t curP = 0, curS = 0;
 
-        for (const auto& p : g_falling) {
-            if (!p.fromSeasonGroup && p.kind == groupAKind && curA < targetA) {
-                nextFalling.push_back(p);
-                ++curA;
-            } else if (p.fromSeasonGroup && p.kind == groupBKind && curB < targetB) {
-                nextFalling.push_back(p);
-                ++curB;
+        for (const auto& item : g_falling) {
+            if (!item.isSeasonalLayer && activePrecip && item.kind == precipKind && curP < targetP) {
+                nextFalling.push_back(item);
+                ++curP;
+            } else if (item.isSeasonalLayer && activeSeasonal && item.kind == seasonalKind && curS < targetS) {
+                nextFalling.push_back(item);
+                ++curS;
             }
         }
-        while (curA < targetA) {
-            FallingParticle p;
-            SpawnFallingParticle(p, rng, groupAKind, false, cfg.particleScale, groupAWindVx, true);
-            nextFalling.push_back(p);
-            ++curA;
+        while (curP < targetP) {
+            FallingItem it;
+            SpawnFallingItem(it, rng, precipKind, false, cfg.particleScale, precipVx, precipVy, true);
+            nextFalling.push_back(it);
+            ++curP;
         }
-        while (curB < targetB) {
-            FallingParticle p;
-            SpawnFallingParticle(p, rng, groupBKind, true, cfg.particleScale, groupBWindVx, true);
-            nextFalling.push_back(p);
-            ++curB;
+        while (curS < targetS) {
+            FallingItem it;
+            SpawnFallingItem(it, rng, seasonalKind, true, cfg.particleScale, seasonalVx, seasonalVy, true);
+            nextFalling.push_back(it);
+            ++curS;
         }
         g_falling.swap(nextFalling);
-
-        // Завихрения ветра [C]
-        size_t targetSwirls = activeFx.windSwirls
-            ? static_cast<size_t>((g_canvasWidth / 1000.0) * cfg.swirlDensity)
-            : 0;
-        while (g_swirls.size() < targetSwirls) {
-            WindSwirl sw;
-            sw.x = static_cast<float>(rng() % std::max(1, g_canvasWidth));
-            sw.y = static_cast<float>(rng() % std::max(1, g_canvasHeight));
-            sw.radius = 18.0f + static_cast<float>(rng() % 28);
-            sw.speed = 65.0f + static_cast<float>(rng() % 90);
-            sw.phase = static_cast<float>(rng() % 628) * 0.01f;
-            g_swirls.push_back(sw);
-        }
-        if (g_swirls.size() > targetSwirls) g_swirls.resize(targetSwirls);
-
-        float swirlVx = (std::abs(groupAWindVx) > 1.0f) ? groupAWindVx : -110.0f;
-        for (auto& sw : g_swirls) {
-            sw.phase += dt * 4.5f;
-            sw.x += swirlVx * dt;
-            sw.y += std::sin(sw.phase) * 28.0f * dt;
-            if (sw.x < -80.0f) sw.x = static_cast<float>(g_canvasWidth) + 60.0f;
-            if (sw.x > g_canvasWidth + 80.0f) sw.x = -60.0f;
-        }
-
-        // Молнии [C]
-        if (activeFx.lightning) {
-            if (g_lightning.activeTimer > 0.0f) {
-                g_lightning.activeTimer = std::max(0.0f, g_lightning.activeTimer - dt);
-            } else {
-                float chancePerSec = cfg.lightningFrequency * 0.03f;
-                if ((static_cast<float>(rng() % 10000) / 10000.0f) < chancePerSec * dt) {
-                    g_lightning.activeTimer = 0.24f;
-                    g_lightning.xStart = static_cast<float>(100 + rng() % std::max(120, g_canvasWidth - 200));
-                    g_lightning.xEnd = g_lightning.xStart + static_cast<float>((rng() % 160) - 80);
-                }
-            }
-        } else {
-            g_lightning.activeTimer = 0.0f;
-        }
 
         // Отслеживание окон и срыв ОПАВШИХ объектов при перемещении/встряске окна
         std::vector<std::wstring> excluded = SplitExcluded(cfg.excludedProcesses);
@@ -1380,9 +1747,9 @@ void RenderWorkerLoop() {
             float cy = (r.top + r.bottom) * 0.5f;
 
             if (wm.hasPrev) {
-                wm.vx = (cx - wm.prevCenterX) / dt;
-                wm.vy = (cy - wm.prevCenterY) / dt;
-                float speed = std::hypot(wm.vx, wm.vy);
+                float vx = (cx - wm.prevCenterX) / dt;
+                float vy = (cy - wm.prevCenterY) / dt;
+                float speed = std::hypot(vx, vy);
                 if (speed > shakeThreshold) {
                     float shedProb = std::clamp((speed - shakeThreshold) / 1800.0f, 0.08f, 0.75f);
                     for (auto& fo : g_fallen) {
@@ -1392,8 +1759,8 @@ void RenderWorkerLoop() {
                                 fo.fallingOff = true;
                                 fo.relX = static_cast<float>(r.left - g_canvasLeft) + fo.relX;
                                 fo.relY = static_cast<float>(r.top - g_canvasTop) + fo.relY;
-                                fo.vx = wm.vx * 0.18f * static_cast<float>(cfg.windowInertiaFactor);
-                                fo.vy = std::max(60.0f, wm.vy * 0.18f);
+                                fo.vx = vx * 0.18f * static_cast<float>(cfg.windowInertiaFactor);
+                                fo.vy = std::max(60.0f, vy * 0.18f);
                             }
                         }
                     }
@@ -1404,7 +1771,6 @@ void RenderWorkerLoop() {
             wm.hasPrev = true;
         }
 
-        // Если окно закрыто – опавшие на нем объекты тоже переходят в свободное падение
         for (auto it = g_windows.begin(); it != g_windows.end();) {
             if (std::find(activeHwnds.begin(), activeHwnds.end(), it->first) == activeHwnds.end()) {
                 HWND closedHwnd = it->first;
@@ -1427,71 +1793,97 @@ void RenderWorkerLoop() {
         int bottomLimitY = ComputeBottomLimitY(cfg);
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-        // Движение ПАДАЮЩИХ частиц (курсор и перемещение окон на них НЕ влияют)
+        // Подсчет текущего накопления по каждому типу
+        auto countAccumulated = [&](ObjectKind k, bool isS) -> int {
+            int c = 0;
+            for (const auto& fo : g_fallen) {
+                if (fo.kind == k && fo.isSeasonalLayer == isS) ++c;
+            }
+            return c;
+        };
+
+        // Движение падающих объектов (курсор и перемещение окон на них не влияют)
         for (size_t i = 0; i < g_falling.size(); ++i) {
-            FallingParticle& p = g_falling[i];
-            float baseWind = p.fromSeasonGroup ? groupBWindVx : groupAWindVx;
+            FallingItem& p = g_falling[i];
+            float vx = p.isSeasonalLayer ? seasonalVx : precipVx;
+            float vy = p.isSeasonalLayer ? seasonalVy : precipVy;
             p.swayPhase += dt * 3.0f;
             p.angle += p.spin * dt * 20.0f;
 
-            bool isRain = (p.kind == PrecipKind::Rain || p.kind == PrecipKind::HeavyRain);
-            float sway = isRain ? 0.0f : std::sin(p.swayPhase) * 22.0f;
-            p.x += (baseWind + sway) * dt;
-            p.y += p.vy * dt;
+            float sway = (p.kind == ObjectKind::Rain) ? 0.0f : std::sin(p.swayPhase) * 18.0f;
+            p.x += (vx + sway) * dt;
+            p.y += vy * dt;
 
-            bool caught = false;
-            if (!isRain && cfg.enableWindowAccumulation && static_cast<int>(g_fallen.size()) < cfg.maxFallenItems) {
+            int maxAcc = GetMaxAccumulatedForKind(cfg, p.kind, p.isSeasonalLayer);
+            bool landed = false;
+
+            if (maxAcc > 0 && countAccumulated(p.kind, p.isSeasonalLayer) < maxAcc) {
                 for (const auto& kv : g_windows) {
                     const RECT& wr = kv.second.rect;
                     float wLeft = static_cast<float>(wr.left - g_canvasLeft);
                     float wRight = static_cast<float>(wr.right - g_canvasLeft);
                     float wTop = static_cast<float>(wr.top - g_canvasTop);
                     if (p.x >= wLeft + 4.0f && p.x <= wRight - 4.0f && p.y >= wTop - 4.0f && p.y <= wTop + 5.0f) {
-                        FallenObject fo;
+                        FallenItem fo;
                         fo.kind = p.kind;
+                        fo.isSeasonalLayer = p.isSeasonalLayer;
                         fo.onWindow = true;
                         fo.hostWindow = kv.first;
                         fo.relX = p.x - wLeft;
-                        fo.relY = -p.size * 0.4f;
+                        fo.relY = -p.size * 0.35f;
                         fo.size = p.size;
                         fo.angle = p.angle;
                         fo.alpha = p.alpha;
                         g_fallen.push_back(fo);
-                        caught = true;
+                        landed = true;
                         break;
                     }
                 }
+
+                if (!landed && p.y >= bottomRelY - p.size * 0.35f) {
+                    FallenItem fo;
+                    fo.kind = p.kind;
+                    fo.isSeasonalLayer = p.isSeasonalLayer;
+                    fo.onWindow = false;
+                    fo.hostWindow = nullptr;
+                    fo.relX = p.x;
+                    fo.relY = -p.size * 0.35f;
+                    fo.size = p.size;
+                    fo.angle = p.angle;
+                    fo.alpha = p.alpha;
+                    g_fallen.push_back(fo);
+                    landed = true;
+                }
             }
 
-            if (!caught && !isRain && cfg.enableBottomAccumulation &&
-                p.y >= bottomRelY - p.size * 0.4f &&
-                static_cast<int>(g_fallen.size()) < cfg.maxFallenItems) {
-                FallenObject fo;
-                fo.kind = p.kind;
-                fo.onWindow = false;
-                fo.hostWindow = nullptr;
-                fo.relX = p.x;
-                fo.relY = -p.size * 0.4f;
-                fo.size = p.size;
-                fo.angle = p.angle;
-                fo.alpha = p.alpha;
-                g_fallen.push_back(fo);
-                caught = true;
-            }
-
-            if (caught || p.y > g_canvasHeight + 30.0f || p.x < -120.0f || p.x > g_canvasWidth + 120.0f) {
-                SpawnFallingParticle(p, rng, p.kind, p.fromSeasonGroup, cfg.particleScale, baseWind, false);
+            if (landed || p.y > g_canvasHeight + 30.0f || p.x < -120.0f || p.x > g_canvasWidth + 120.0f) {
+                SpawnFallingItem(p, rng, p.kind, p.isSeasonalLayer, cfg.particleScale, vx, vy, false);
             }
         }
 
-        // Взаимодействие с курсором и физика — ТОЛЬКО для опавших объектов
+        // Взаимодействие с курсором и время жизни — только для опавших объектов
         POINT cursorPt = {};
         GetCursorPos(&cursorPt);
         float cX = static_cast<float>(cursorPt.x - g_canvasLeft);
         float cY = static_cast<float>(cursorPt.y - g_canvasTop);
         float cRad = static_cast<float>(cfg.cursorRadiusPx);
 
-        for (auto& fo : g_fallen) {
+        for (size_t i = 0; i < g_fallen.size();) {
+            FallenItem& fo = g_fallen[i];
+            fo.ageSec += dt;
+
+            double lifeMin = GetLifetimeMinForKind(cfg, fo.kind, fo.isSeasonalLayer);
+            if (lifeMin >= 0.0) {
+                float lifeSec = static_cast<float>(lifeMin * 60.0);
+                if (fo.ageSec >= lifeSec) {
+                    fo.alpha -= dt * 1.5f;
+                }
+                if (fo.alpha <= 0.03f) {
+                    g_fallen.erase(g_fallen.begin() + i);
+                    continue;
+                }
+            }
+
             float absX = fo.relX;
             float absY = fo.relY;
             if (fo.onWindow) {
@@ -1517,7 +1909,6 @@ void RenderWorkerLoop() {
                         if (it != g_windows.end()) {
                             int w = it->second.rect.right - it->second.rect.left;
                             fo.relX = std::clamp(fo.relX + nx * push, 2.0f, static_cast<float>(std::max(3, w - 2)));
-                            // Если курсор сдвинул объект за край окна – он падает вниз
                             if (absX + nx * push < it->second.rect.left - g_canvasLeft ||
                                 absX + nx * push > it->second.rect.right - g_canvasLeft) {
                                 fo.onWindow = false;
@@ -1542,30 +1933,19 @@ void RenderWorkerLoop() {
                 fo.relX += fo.vx * dt;
                 fo.relY += fo.vy * dt;
                 fo.angle += 2.5f * dt;
-                if (fo.relY >= bottomRelY - fo.size * 0.4f) {
+                if (fo.relY >= bottomRelY - fo.size * 0.35f) {
                     fo.fallingOff = false;
                     fo.onWindow = false;
                     fo.vx = 0.0f;
                     fo.vy = 0.0f;
-                    fo.relY = -fo.size * 0.4f;
+                    fo.relY = -fo.size * 0.35f;
                 }
             }
+
+            ++i;
         }
 
-        // Постепенное таяние/исчезновение опавших объектов
-        if (cfg.decaySpeed > 0.0 && !g_fallen.empty()) {
-            float removeCountFloat = static_cast<float>(cfg.decaySpeed) * dt;
-            int toFade = static_cast<int>(removeCountFloat) + (((rng() % 1000) < static_cast<int>((removeCountFloat - static_cast<int>(removeCountFloat)) * 1000.0f)) ? 1 : 0);
-            for (int k = 0; k < toFade && !g_fallen.empty(); ++k) {
-                size_t idx = rng() % g_fallen.size();
-                g_fallen[idx].alpha -= 0.25f;
-                if (g_fallen[idx].alpha <= 0.05f) {
-                    g_fallen.erase(g_fallen.begin() + idx);
-                }
-            }
-        }
-
-        RenderFrame(cfg, activeFx, bottomLimitY);
+        RenderFrame(cfg, activeFx, bottomLimitY, precipVx);
 
         int frameMs = 1000 / cfg.targetFps;
         std::this_thread::sleep_for(std::chrono::milliseconds(frameMs));
