@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.4.3
+// @version         0.4.4
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -35,6 +35,15 @@
   $options:
     - primary: Primary monitor
     - all: All monitors (virtual screen)
+- targetFps: 60
+  $name: "[System] Target FPS (30 or 60)"
+  $description: "Target frame rate (30 or 60). Any other value resets to 60."
+- pauseOnFullscreen: true
+  $name: "[System] Pause on fullscreen apps"
+  $description: "Pauses rendering while a fullscreen app is active. Default: true."
+- excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
+  $name: "[System] Excluded processes"
+  $description: "Comma-separated executable names excluded from window accumulation/shedding."
 - cursorAction: clear
   $name: "[System] Cursor action"
   $description: "Affects fallen objects only. clear = erase on touch (default); move = 1 snowball & 1 leaf/petal pile per surface; none = ignore cursor."
@@ -244,10 +253,10 @@
   $description: "Maximum height of the single leaf/petal mound per surface in pixels (8 to 250). Invalid/out-of-range resets to 54."
 - windowShakeSensitivity: 55
   $name: "[Windows] Shed sensitivity (1..100)"
-  $description: "Sensitivity for detaching fallen items/snowballs when moving windows (1..100). Invalid/out-of-range resets to 55."
+  $description: "Sensitivity for detaching fallen items/snowballs when moving/shaking windows (1..100). Invalid/out-of-range resets to 55."
 - windowInertiaFactor: "0.75"
   $name: "[Windows] Shed inertia factor"
-  $description: "Horizontal inertia transferred to detached fallen items/snowballs (0.0 to 3.0). Invalid resets to 0.75."
+  $description: "Horizontal & toss inertia transferred to detached fallen items/snowballs/piles (0.0 to 3.0). Invalid resets to 0.75."
 - particleScale: "1.0"
   $name: "[Objects] Size scale"
   $description: "Size multiplier for falling and fallen objects (0.3 to 4.0). Invalid resets to 1.0."
@@ -304,17 +313,6 @@
 - colorHalo: ""
   $name: "[Color] Halo (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default pale halo."
-
-# --- 9. PERFORMANCE ---
-- targetFps: 60
-  $name: "[Perf] Target FPS (30 or 60)"
-  $description: "Target frame rate (30 or 60). Any other value resets to 60."
-- pauseOnFullscreen: true
-  $name: "[Perf] Pause on fullscreen apps"
-  $description: "Pauses rendering while a fullscreen app is active. Default: true."
-- excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
-  $name: "[Perf] Excluded processes"
-  $description: "Comma-separated executable names excluded from window accumulation/shedding."
 */
 // ==/WindhawkModSettings==
 
@@ -412,6 +410,10 @@ struct Settings {
     int bottomOffsetPx = 0;
     std::wstring multiMonitorMode = L"primary";
 
+    int targetFps = 60;
+    bool pauseOnFullscreen = true;
+    std::wstring excludedProcesses = L"obs64.exe, ApplicationFrameHost.exe";
+
     CursorActionMode cursorAction = CursorActionMode::Clear;
     int cursorRadiusPx = 95;
 
@@ -502,10 +504,6 @@ struct Settings {
     D2D1_COLOR_F colorRainbow = D2D1::ColorF(1.0f, 0.78f, 0.35f, 0.35f);
     bool hasCustomHaloColor = false;
     D2D1_COLOR_F colorHalo = D2D1::ColorF(0.98f, 0.95f, 0.82f, 0.32f);
-
-    int targetFps = 60;
-    bool pauseOnFullscreen = true;
-    std::wstring excludedProcesses = L"obs64.exe, ApplicationFrameHost.exe";
 };
 
 struct FallingItem {
@@ -527,6 +525,9 @@ struct FallenItem {
     HWND hostWindow = nullptr;
     float relX = 0.0f;
     float relY = 0.0f;
+    float lift = 0.0f;     // пружинный подъем при резком движении окна вверх
+    float liftVel = 0.0f;  // скорость подъема/возврата пружины
+    float hang = 0.0f;     // краткое зависание при резком движении окна вниз
     float vx = 0.0f;
     float vy = 0.0f;
     float size = 6.0f;
@@ -546,6 +547,8 @@ struct Snowball {
     float vx = 0.0f;
     float vy = 0.0f;
     float radius = 8.0f;
+    float squash = 0.0f;
+    float squashVel = 0.0f;
     float alpha = 0.95f;
     float ageSec = 0.0f;
     bool fallingOff = false;
@@ -567,6 +570,8 @@ struct FoliagePile {
     float centerX = 0.0f;
     float baseY = 0.0f;
     float vx = 0.0f;
+    float lift = 0.0f;
+    float liftVel = 0.0f;
     float halfWidth = 36.0f;
     float height = 10.0f;
     float ageSec = 0.0f;
@@ -583,6 +588,9 @@ struct WindowMotion {
     RECT rect = {};
     float prevCenterX = 0.0f;
     float prevCenterY = 0.0f;
+    float prevVx = 0.0f;
+    float shakeDir = 0.0f;
+    float shakeTimer = 0.0f;
     bool hasPrev = false;
 };
 
@@ -765,7 +773,6 @@ void ParseSeasonsRangeString(const std::wstring& raw, Settings& cfg) {
 }
 
 void ParseArcGeometryString(const std::wstring& raw, ArcGeometry defGeom, ArcGeometry& outGeom) {
-    // Формат: "Radius-CenterX/CenterY"
     outGeom = defGeom;
     std::wstring s = Trim(raw);
     size_t dash = s.find(L'-');
@@ -912,6 +919,11 @@ void LoadSettingsFromWh() {
     next.bottomOffsetPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"bottomOffsetPx"), -500, 1000, 0);
     next.multiMonitorMode = readStr(L"multiMonitorMode", L"primary");
 
+    int fpsRaw = Wh_GetIntSetting(L"targetFps");
+    next.targetFps = (fpsRaw == 30 || fpsRaw == 60) ? fpsRaw : 60;
+    next.pauseOnFullscreen = Wh_GetIntSetting(L"pauseOnFullscreen") != 0;
+    next.excludedProcesses = readStr(L"excludedProcesses", L"obs64.exe, ApplicationFrameHost.exe");
+
     next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"clear"));
     next.cursorRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500, 95);
 
@@ -996,11 +1008,6 @@ void LoadSettingsFromWh() {
     next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
     next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
 
-    int fpsRaw = Wh_GetIntSetting(L"targetFps");
-    next.targetFps = (fpsRaw == 30 || fpsRaw == 60) ? fpsRaw : 60;
-    next.pauseOnFullscreen = Wh_GetIntSetting(L"pauseOnFullscreen") != 0;
-    next.excludedProcesses = readStr(L"excludedProcesses", L"obs64.exe, ApplicationFrameHost.exe");
-
     std::lock_guard<std::mutex> lock(g_mutex);
     g_settings = next;
 }
@@ -1017,7 +1024,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.9", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/1.0", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -1509,13 +1516,14 @@ void DrawRainPuddle(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float 
 
 void DrawFoliagePileShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
                           const FoliagePile& pile, float drawCenterX, float drawBaseY) {
+    float effY = drawBaseY - pile.lift;
     D2D1_COLOR_F baseCol = brush->GetColor();
     baseCol.a = 0.24f;
     ID2D1SolidColorBrush* moundBrush = nullptr;
     if (SUCCEEDED(rt->CreateSolidColorBrush(baseCol, &moundBrush)) && moundBrush) {
         rt->FillEllipse(
             D2D1::Ellipse(
-                D2D1::Point2F(drawCenterX, drawBaseY - pile.height * 0.28f),
+                D2D1::Point2F(drawCenterX, effY - pile.height * 0.28f),
                 pile.halfWidth,
                 std::max(4.0f, pile.height * 0.45f)),
             moundBrush);
@@ -1523,7 +1531,7 @@ void DrawFoliagePileShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
     }
 
     for (const auto& m : pile.members) {
-        DrawItemShape(rt, brush, pile.kind, drawCenterX + m.dx, drawBaseY + m.dy, m.size, m.angle, 0.0f, m.alpha);
+        DrawItemShape(rt, brush, pile.kind, drawCenterX + m.dx, effY + m.dy, m.size, m.angle, 0.0f, m.alpha);
     }
 }
 
@@ -1802,11 +1810,14 @@ void DrawSmoothMirage(ID2D1DCRenderTarget* rt, const Settings& cfg, float streng
     }
 }
 
-void DrawSnowballShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float x, float y, float radius, float alpha) {
+void DrawSnowballShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
+                     float x, float y, float radius, float squash, float alpha) {
+    float rx = radius * (1.0f + squash * 0.35f);
+    float ry = std::max(2.0f, radius * (1.0f - squash * 0.35f));
     brush->SetOpacity(std::clamp(alpha, 0.1f, 1.0f));
-    rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), radius, radius), brush);
+    rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), rx, ry), brush);
     brush->SetOpacity(std::clamp(alpha * 0.35f, 0.05f, 0.5f));
-    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), radius, radius), brush, 1.2f);
+    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), rx, ry), brush, 1.2f);
 }
 
 void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec) {
@@ -1890,7 +1901,7 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
             if (cfg.enableBottomAccumulation) {
                 for (const auto& fo : g_fallen) {
                     if (fo.onWindow) continue;
-                    float drawY = fo.fallingOff ? fo.relY : (bottomRelY + fo.relY);
+                    float drawY = fo.fallingOff ? fo.relY : (bottomRelY + fo.relY - fo.lift);
                     brush->SetColor(GetColorForKind(cfg, fo.kind));
                     if (!fo.fallingOff && fo.kind == ObjectKind::Rain) {
                         DrawRainPuddle(g_desktopSurface.rt, brush, fo.relX, bottomRelY - 1.0f, fo.size, fo.alpha);
@@ -1907,7 +1918,7 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
                     if (sb.onWindow) continue;
                     float drawY = sb.fallingOff ? sb.relY : (bottomRelY - sb.radius);
                     brush->SetColor(GetColorForKind(cfg, sb.kind));
-                    DrawSnowballShape(g_desktopSurface.rt, brush, sb.relX, drawY, sb.radius, sb.alpha);
+                    DrawSnowballShape(g_desktopSurface.rt, brush, sb.relX, drawY, sb.radius, sb.squash, sb.alpha);
                 }
             }
             brush->Release();
@@ -1934,7 +1945,7 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
                     auto it = g_windows.find(fo.hostWindow);
                     if (it == g_windows.end()) continue;
                     float drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + fo.relX;
-                    float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY;
+                    float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY - fo.lift;
                     brush->SetColor(GetColorForKind(cfg, fo.kind));
                     DrawItemShape(g_topWindowsSurface.rt, brush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
                 }
@@ -1954,7 +1965,7 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
                     float drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + sb.relX;
                     float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) - sb.radius;
                     brush->SetColor(GetColorForKind(cfg, sb.kind));
-                    DrawSnowballShape(g_topWindowsSurface.rt, brush, drawX, drawY, sb.radius, sb.alpha);
+                    DrawSnowballShape(g_topWindowsSurface.rt, brush, drawX, drawY, sb.radius, sb.squash, sb.alpha);
                 }
                 brush->Release();
             }
@@ -2149,8 +2160,9 @@ void RenderWorkerLoop() {
         EnumCtx ctx{&excluded, &activeHwnds};
         EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&ctx));
 
-        float shakeThreshold = 1350.0f - (cfg.windowShakeSensitivity * 11.0f);
-        shakeThreshold = std::max(120.0f, shakeThreshold);
+        float shakeSpeedThreshold = 1350.0f - (cfg.windowShakeSensitivity * 11.0f);
+        shakeSpeedThreshold = std::max(140.0f, shakeSpeedThreshold);
+        float inertia = static_cast<float>(cfg.windowInertiaFactor);
 
         for (HWND h : activeHwnds) {
             RECT r = {};
@@ -2163,31 +2175,64 @@ void RenderWorkerLoop() {
             if (wm.hasPrev) {
                 float vx = (cx - wm.prevCenterX) / dt;
                 float vy = (cy - wm.prevCenterY) / dt;
-                float speed = std::hypot(vx, vy);
-                if (speed > shakeThreshold) {
-                    float shedProb = std::clamp((speed - shakeThreshold) / 1800.0f, 0.08f, 0.75f);
-                    for (auto& fo : g_fallen) {
-                        if (fo.onWindow && fo.hostWindow == h && !fo.fallingOff && fo.kind != ObjectKind::Rain) {
-                            if ((rng() % 100) < static_cast<int>(shedProb * 100.0f)) {
-                                fo.onWindow = false;
-                                fo.fallingOff = true;
-                                fo.relX = static_cast<float>(r.left - g_canvasLeft) + fo.relX;
-                                fo.relY = static_cast<float>(r.top - g_canvasTop) + fo.relY;
-                                fo.vx = vx * 0.18f * static_cast<float>(cfg.windowInertiaFactor);
-                                fo.vy = std::max(60.0f, vy * 0.18f);
+                float dTop = static_cast<float>(r.top - wm.rect.top);
+                (void)dTop;
+
+                wm.shakeTimer += dt;
+                if (std::abs(vx) > shakeSpeedThreshold) {
+                    float dir = (vx > 0.0f) ? 1.0f : -1.0f;
+                    // Резкая смена направления встряски (в духе desktop-snowfall)
+                    if (wm.shakeDir != 0.0f && dir != wm.shakeDir && wm.shakeTimer < 0.35f) {
+                        float tossVx = wm.shakeDir * std::min(650.0f, std::abs(wm.prevVx) * 0.45f) * inertia;
+                        for (auto& fo : g_fallen) {
+                            if (fo.onWindow && fo.hostWindow == h && !fo.fallingOff && fo.kind != ObjectKind::Rain) {
+                                if ((rng() % 100) < 42) {
+                                    fo.onWindow = false;
+                                    fo.fallingOff = true;
+                                    fo.relX = static_cast<float>(r.left - g_canvasLeft) + fo.relX;
+                                    fo.relY = static_cast<float>(r.top - g_canvasTop) + fo.relY - fo.lift;
+                                    fo.vx = tossVx * (0.4f + 0.4f * ((rng() % 100) * 0.01f));
+                                    fo.vy = -80.0f - static_cast<float>(rng() % 140);
+                                }
                             }
+                        }
+                        for (auto& sb : g_snowballs) {
+                            if (sb.onWindow && sb.hostWindow == h && !sb.fallingOff) {
+                                if ((rng() % 100) < 48) {
+                                    sb.onWindow = false;
+                                    sb.fallingOff = true;
+                                    sb.relX = static_cast<float>(r.left - g_canvasLeft) + sb.relX;
+                                    sb.relY = static_cast<float>(r.top - g_canvasTop) - sb.radius;
+                                    sb.vx = tossVx * 0.5f;
+                                    sb.vy = -90.0f - static_cast<float>(rng() % 120);
+                                    sb.squashVel += 1.4f;
+                                }
+                            }
+                        }
+                    }
+                    wm.shakeDir = dir;
+                    wm.shakeTimer = 0.0f;
+                    wm.prevVx = vx;
+                } else if (wm.shakeTimer > 0.35f) {
+                    wm.shakeDir = 0.0f;
+                }
+
+                // Пружинный импульс при резком движении окна вверх/вниз
+                if (vy < -shakeSpeedThreshold * 0.9f) {
+                    for (auto& fo : g_fallen) {
+                        if (fo.onWindow && fo.hostWindow == h && !fo.fallingOff) {
+                            fo.liftVel = std::min(380.0f, fo.liftVel + std::abs(vy) * 0.25f * inertia);
                         }
                     }
                     for (auto& sb : g_snowballs) {
                         if (sb.onWindow && sb.hostWindow == h && !sb.fallingOff) {
-                            if ((rng() % 100) < static_cast<int>(shedProb * 100.0f)) {
-                                sb.onWindow = false;
-                                sb.fallingOff = true;
-                                sb.relX = static_cast<float>(r.left - g_canvasLeft) + sb.relX;
-                                sb.relY = static_cast<float>(r.top - g_canvasTop) - sb.radius;
-                                sb.vx = vx * 0.15f * static_cast<float>(cfg.windowInertiaFactor);
-                                sb.vy = std::max(70.0f, vy * 0.15f);
-                            }
+                            sb.squashVel += 1.2f * inertia;
+                        }
+                    }
+                } else if (vy > shakeSpeedThreshold * 0.9f) {
+                    for (auto& fo : g_fallen) {
+                        if (fo.onWindow && fo.hostWindow == h && !fo.fallingOff) {
+                            fo.hang = std::max(fo.hang, 0.10f);
                         }
                     }
                 }
@@ -2206,7 +2251,7 @@ void RenderWorkerLoop() {
                         fo.onWindow = false;
                         fo.fallingOff = true;
                         fo.relX = static_cast<float>(lastRect.left - g_canvasLeft) + fo.relX;
-                        fo.relY = static_cast<float>(lastRect.top - g_canvasTop) + fo.relY;
+                        fo.relY = static_cast<float>(lastRect.top - g_canvasTop) + fo.relY - fo.lift;
                         fo.vy = 70.0f;
                     }
                 }
@@ -2340,16 +2385,28 @@ void RenderWorkerLoop() {
                 }
             }
 
+            // Пружинный возврат приподнятого слоя (в стиле desktop-snowfall)
+            if (fo.hang > 0.0f) {
+                fo.hang = std::max(0.0f, fo.hang - dt);
+            } else if (fo.lift > 0.0f || fo.liftVel != 0.0f) {
+                fo.liftVel += (-240.0f * fo.lift - 18.0f * fo.liftVel) * dt;
+                fo.lift = std::max(0.0f, fo.lift + fo.liftVel * dt);
+                if (fo.lift <= 0.01f && std::abs(fo.liftVel) < 0.5f) {
+                    fo.lift = 0.0f;
+                    fo.liftVel = 0.0f;
+                }
+            }
+
             float absX = fo.relX;
             float absY = fo.relY;
             if (fo.onWindow) {
                 auto it = g_windows.find(fo.hostWindow);
                 if (it != g_windows.end()) {
                     absX = static_cast<float>(it->second.rect.left - g_canvasLeft) + fo.relX;
-                    absY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY;
+                    absY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY - fo.lift;
                 }
             } else if (!fo.fallingOff) {
-                absY = bottomRelY + fo.relY;
+                absY = bottomRelY + fo.relY - fo.lift;
             }
 
             float dist = std::hypot(absX - cX, absY - cY);
@@ -2422,7 +2479,7 @@ void RenderWorkerLoop() {
             }
 
             if (fo.fallingOff) {
-                fo.vy += 320.0f * dt;
+                fo.vy += 420.0f * dt;
                 fo.relX += fo.vx * dt;
                 fo.relY += fo.vy * dt;
                 fo.angle += 2.5f * dt;
@@ -2503,6 +2560,15 @@ void RenderWorkerLoop() {
                 }
             }
 
+            if (sb.squash != 0.0f || sb.squashVel != 0.0f) {
+                sb.squashVel += (-220.0f * sb.squash - 16.0f * sb.squashVel) * dt;
+                sb.squash = std::clamp(sb.squash + sb.squashVel * dt, -0.35f, 0.35f);
+                if (std::abs(sb.squash) < 0.002f && std::abs(sb.squashVel) < 0.02f) {
+                    sb.squash = 0.0f;
+                    sb.squashVel = 0.0f;
+                }
+            }
+
             if (sb.onWindow) {
                 auto it = g_windows.find(sb.hostWindow);
                 if (it != g_windows.end()) {
@@ -2545,7 +2611,7 @@ void RenderWorkerLoop() {
                     }
                 }
             } else if (sb.fallingOff) {
-                sb.vy += 380.0f * dt;
+                sb.vy += 420.0f * dt;
                 sb.relX += sb.vx * dt;
                 sb.relY += sb.vy * dt;
 
