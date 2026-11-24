@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.5.0
+// @version         0.6.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -520,7 +520,7 @@ struct Settings {
 
 struct VisibleWindow {
     HWND hwnd = nullptr;
-    RECT rect = {}; // координаты в пространстве канваса
+    RECT rect = {};
 };
 
 struct SnowColumn {
@@ -1444,7 +1444,6 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE;
 }
 
-// Проверка перекрытия точки (x, y) окнами, расположенными ВЫШЕ индекса targetIdx в Z-order
 bool IsPointOccludedAbove(const std::vector<VisibleWindow>& windows, size_t targetIdx, float x, float y) {
     int ix = static_cast<int>(std::floor(x));
     int iy = static_cast<int>(std::floor(y));
@@ -1457,13 +1456,11 @@ bool IsPointOccludedAbove(const std::vector<VisibleWindow>& windows, size_t targ
     return false;
 }
 
-// Поиск верхнего видимого окна, чью верхнюю кромку пересекла частица сверху вниз
 int FindTopWindowLanding(const std::vector<VisibleWindow>& windows, float x, float prevY, float curY) {
     int ix = static_cast<int>(std::floor(x));
     for (size_t i = 0; i < windows.size(); ++i) {
         const RECT& r = windows[i].rect;
         if (ix < r.left || ix >= r.right) continue;
-        // Если частица уже внутри более высокого окна – оно перехватывает ее, нижележащим окнам не достается
         if (curY >= static_cast<float>(r.top) && curY < static_cast<float>(r.bottom)) {
             if (prevY <= static_cast<float>(r.top) + 12.0f) {
                 return static_cast<int>(i);
@@ -1625,12 +1622,12 @@ void SyncSnowCapWidth(SnowCap& cap, const RECT& newRect, int baseLeft, int baseT
         return;
     }
     if (oldW == newW) {
-        cap.offset += (newRect.left - cap.lastRect.left);
+        cap.offset += static_cast<int>(newRect.left - cap.lastRect.left);
         cap.lastRect = newRect;
         return;
     }
-    int dl = newRect.left - cap.lastRect.left;
-    int dr = newRect.right - cap.lastRect.right;
+    int dl = static_cast<int>(newRect.left - cap.lastRect.left);
+    int dr = static_cast<int>(newRect.right - cap.lastRect.right);
     if (dl != 0 && dr != 0) {
         std::vector<SnowColumn> old = std::move(cap.cols);
         cap.cols.assign(newW, SnowColumn{});
@@ -1713,7 +1710,6 @@ void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, boo
         item.spin = ((rng() % 100) - 50) * 0.04f;
         item.flipSpeed = (1.8f + (rng() % 25) * 0.1f) * ((rng() % 2 == 0) ? 1.0f : -1.0f);
     } else {
-        // Мягкий разброс размеров снежинок как в desktop-snowfall
         float depth = static_cast<float>(rng() % 1000) / 1000.0f;
         item.size = (2.4f + depth * depth * 5.2f) * s;
         item.spin = 0.0f;
@@ -1880,7 +1876,6 @@ void DrawMapleLeafWithFlip(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
     }
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(0.0f, 0.0f), r * 0.48f, r * 0.48f), brush);
 
-    // Прожилка и черенок листа
     brush->SetColor(D2D1::ColorF(baseColor.r * 0.58f * shade, baseColor.g * 0.58f * shade, baseColor.b * 0.58f * shade, std::clamp(alpha * 0.85f, 0.05f, 1.0f)));
     rt->DrawLine(D2D1::Point2F(0.0f, -r * 0.55f), D2D1::Point2F(0.0f, r * 1.18f), brush, std::max(1.1f, r * 0.15f));
 
@@ -1903,7 +1898,6 @@ void DrawNotchedPetalWithFlip(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* bru
 
     brush->SetColor(D2D1::ColorF(baseColor.r * shade, baseColor.g * shade, baseColor.b * shade, std::clamp(alpha, 0.05f, 1.0f)));
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(0.0f, 0.0f), r * 0.92f, r * 0.54f), brush);
-    // Легкий контурный акцент лепестка
     brush->SetColor(D2D1::ColorF(std::min(1.0f, baseColor.r * 1.04f), baseColor.g * 0.90f, baseColor.b * 0.92f, std::clamp(alpha * 0.55f, 0.05f, 0.8f)));
     rt->DrawLine(D2D1::Point2F(-r * 0.55f, 0.0f), D2D1::Point2F(r * 0.45f, 0.0f), brush, std::max(0.9f, r * 0.10f));
 
@@ -1927,7 +1921,7 @@ void DrawItemShape(LayeredSurface& surf, ID2D1SolidColorBrush* brush, const Sett
                 surf.flakeSprite,
                 D2D1::RectF(x - r, y - r, x + r, y + r),
                 std::clamp(alpha, 0.05f, 1.0f),
-                D2D1_INTERPOLATION_MODE_LINEAR);
+                D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
             return;
         }
         brush->SetColor(GetColorForKind(cfg, kind));
@@ -1938,7 +1932,6 @@ void DrawItemShape(LayeredSurface& surf, ID2D1SolidColorBrush* brush, const Sett
 
     if (kind == ObjectKind::AutumnLeaves) {
         D2D1_COLOR_F col = cfg.colorAutumnLeaves;
-        // Если пользователь не задал свой HEX (остался дефолтный оттенок), варьируем природные осенние тона
         if (std::abs(col.r - 0.88f) < 0.01f && std::abs(col.g - 0.44f) < 0.01f) {
             const float* rgb = kLeafPalette[shadeIdx % _countof(kLeafPalette)];
             col = D2D1::ColorF(rgb[0], rgb[1], rgb[2], col.a);
@@ -1957,7 +1950,6 @@ void DrawItemShape(LayeredSurface& surf, ID2D1SolidColorBrush* brush, const Sett
         return;
     }
 
-    // Hail
     D2D1::Matrix3x2F oldXform;
     surf.rt->GetTransform(&oldXform);
     surf.rt->SetTransform(D2D1::Matrix3x2F::Rotation(angle * 57.29578f, D2D1::Point2F(x, y)) * oldXform);
@@ -2116,7 +2108,7 @@ void DrawSnowballShape(LayeredSurface& surf, ID2D1SolidColorBrush* brush, const 
             surf.flakeSprite,
             D2D1::RectF(x - rx * 1.25f, y - ry * 1.25f, x + rx * 1.25f, y + ry * 1.25f),
             std::clamp(sb.alpha, 0.1f, 1.0f),
-            D2D1_INTERPOLATION_MODE_LINEAR);
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR);
         return;
     }
     brush->SetColor(GetColorForKind(cfg, sb.kind));
@@ -2313,7 +2305,6 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx,
     float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
     float s = static_cast<float>(cfg.particleScale);
 
-    // 1. Нижний слой (под иконками/окнами)
     if (g_desktopOverlayHwnd && EnsureSurface(g_desktopSurface, g_canvasWidth, g_canvasHeight, cfg.colorSnow, cfg.hasCustomSnowColor)) {
         RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
         g_desktopSurface.rt->BindDC(g_desktopSurface.memDC, &bindRect);
@@ -2421,7 +2412,6 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx,
         }
     }
 
-    // 2. Верхний слой (поверх окон): отрисовка снизу вверх по Z-order с отсечением перекрытых вышележащими окнами участков
     if (g_topWindowsOverlayHwnd && EnsureSurface(g_topWindowsSurface, g_canvasWidth, g_canvasHeight, cfg.colorSnow, cfg.hasCustomSnowColor)) {
         RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
         g_topWindowsSurface.rt->BindDC(g_topWindowsSurface.memDC, &bindRect);
@@ -2433,7 +2423,6 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx,
             if (SUCCEEDED(g_topWindowsSurface.rt->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &brush)) && brush) {
                 for (size_t i = windows.size(); i-- > 0;) {
                     const VisibleWindow& vw = windows[i];
-                    // Вышележащее окно стирает накопления нижележащих окон под собой (как в desktop-snowfall)
                     g_topWindowsSurface.rt->PushAxisAlignedClip(
                         D2D1::RectF(static_cast<float>(vw.rect.left), static_cast<float>(vw.rect.top),
                                     static_cast<float>(vw.rect.right), static_cast<float>(vw.rect.bottom)),
@@ -2499,7 +2488,6 @@ void UpdateCapPhysics(SnowCap& cap, int baseLeft, int baseTop, float vx, float v
     cap.vx = cap.vx * 0.5f + vx * 0.5f;
     cap.vy = cap.vy * 0.5f + vy * 0.5f;
 
-    // Встряска влево-вправо (из desktop-snowfall)
     cap.shakeTime += dt;
     if (std::abs(cap.vx) > shakeSpeedThreshold) {
         float dir = (cap.vx > 0.0f) ? 1.0f : -1.0f;
@@ -2526,7 +2514,6 @@ void UpdateCapPhysics(SnowCap& cap, int baseLeft, int baseTop, float vx, float v
         cap.shakeDir = 0.0f;
     }
 
-    // Подброс вверх и зависание при резком опускании вниз
     float minToss = kMinTossSpeed * scale;
     float maxToss = kMaxTossSpeed * scale;
     bool launch = false;
@@ -2772,7 +2759,6 @@ void RenderWorkerLoop() {
         }
         g_falling.swap(nextFalling);
 
-        // Собираем видимые окна сверху вниз по Z-order
         std::vector<std::wstring> excluded = SplitExcluded(cfg.excludedProcesses);
         std::vector<VisibleWindow> windows;
         EnumCtx ctx{&excluded, &windows};
@@ -2792,7 +2778,6 @@ void RenderWorkerLoop() {
         shakeSpeedThreshold = std::max(140.0f, shakeSpeedThreshold);
         float inertia = static_cast<float>(cfg.windowInertiaFactor);
 
-        // Синхронизируем сугробы и движение для каждого окна
         for (size_t idx = 0; idx < windows.size(); ++idx) {
             const VisibleWindow& vw = windows[idx];
             HWND h = vw.hwnd;
@@ -2851,7 +2836,7 @@ void RenderWorkerLoop() {
                     wm.shakeDir = dir;
                     wm.shakeTimer = 0.0f;
                     wm.prevVx = vx;
-                } else if (wm.shakeTime > 0.35f) {
+                } else if (wm.shakeTimer > 0.35f) {
                     wm.shakeDir = 0.0f;
                 }
             }
@@ -2861,7 +2846,6 @@ void RenderWorkerLoop() {
             wm.hasPrev = true;
         }
 
-        // Очистка закрытых окон
         for (auto it = g_windows.begin(); it != g_windows.end();) {
             bool stillExists = false;
             for (const auto& vw : windows) {
@@ -2904,7 +2888,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Таяние сугробов при заданном lifetime
         if (cfg.precipLifetimeMin >= 0.0) {
             float meltRate = ComputeMaxCapHeightPx(cfg, false) / std::max(3.0f, static_cast<float>(cfg.precipLifetimeMin * 60.0));
             for (auto& c : g_bottomSnowCap.cols) {
@@ -2930,7 +2913,6 @@ void RenderWorkerLoop() {
 
         bool anyAccumEnabled = cfg.enableBottomAccumulation || cfg.enableWindowAccumulation;
 
-        // Движение и приземление падающих объектов с учетом Z-order окон
         for (size_t i = 0; i < g_falling.size(); ++i) {
             FallingItem& p = g_falling[i];
             float vx = p.isSeasonalLayer ? seasonalVx : precipVx;
@@ -2948,15 +2930,15 @@ void RenderWorkerLoop() {
             bool landed = false;
             bool isSnowKind = (p.kind == ObjectKind::Snow || p.kind == ObjectKind::ExtraSnow);
 
-            // Проверяем попадание в верхнее видимое окно
             int hitWinIdx = FindTopWindowLanding(windows, p.x, prevY, p.y);
             if (hitWinIdx >= 0) {
                 const VisibleWindow& vw = windows[hitWinIdx];
                 if (anyAccumEnabled && cfg.enableWindowAccumulation && maxAcc > 0 && p.kind != ObjectKind::Rain) {
                     if (isSnowKind) {
                         auto capIt = g_windowSnowCaps.find(vw.hwnd);
-                        if (capIt != g_windowSnowCaps.end()) {
-                            int col = std::clamp(static_cast<int>(p.x) - vw.rect.left, 0, static_cast<int>(capIt->second.cols.size()) - 1);
+                        if (capIt != g_windowSnowCaps.end() && !capIt->second.cols.empty()) {
+                            int maxColIdx = static_cast<int>(capIt->second.cols.size()) - 1;
+                            int col = std::clamp(static_cast<int>(p.x) - static_cast<int>(vw.rect.left), 0, maxColIdx);
                             AddSnowToCap(capIt->second, col, 1.8f * s + 0.6f * p.size, ComputeMaxCapHeightPx(cfg, false), s);
                         }
                         landed = true;
@@ -2979,7 +2961,6 @@ void RenderWorkerLoop() {
                 }
             }
 
-            // Если окно не поймало частицу, проверяем нижнюю границу (только если точка не перекрыта окном сверху)
             if (!landed && p.y >= bottomRelY - p.size * 0.30f) {
                 bool blockedByWindow = IsPointOccludedAbove(windows, windows.size(), p.x, bottomRelY - 2.0f);
                 if (!blockedByWindow && anyAccumEnabled && cfg.enableBottomAccumulation && maxAcc > 0) {
@@ -3011,7 +2992,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Обновление сорванных снежных комков (SnowChunk)
         for (size_t i = 0; i < g_chunks.size();) {
             SnowChunk& ch = g_chunks[i];
             float prevY = ch.y;
@@ -3024,8 +3004,9 @@ void RenderWorkerLoop() {
             int hitIdx = FindTopWindowLanding(windows, ch.x, prevY, ch.y);
             if (hitIdx >= 0 && windows[hitIdx].hwnd != ch.ignoreHwnd && cfg.enableWindowAccumulation) {
                 auto capIt = g_windowSnowCaps.find(windows[hitIdx].hwnd);
-                if (capIt != g_windowSnowCaps.end()) {
-                    int col = std::clamp(static_cast<int>(ch.x) - windows[hitIdx].rect.left, 0, static_cast<int>(capIt->second.cols.size()) - 1);
+                if (capIt != g_windowSnowCaps.end() && !capIt->second.cols.empty()) {
+                    int maxColIdx = static_cast<int>(capIt->second.cols.size()) - 1;
+                    int col = std::clamp(static_cast<int>(ch.x) - static_cast<int>(windows[hitIdx].rect.left), 0, maxColIdx);
                     AddSnowToCap(capIt->second, col, ch.area / kSnowKernelSum, ComputeMaxCapHeightPx(cfg, false), s);
                     settled = true;
                 }
@@ -3044,7 +3025,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Взаимодействие с курсором (clear / move / none)
         POINT cursorPt = {};
         GetCursorPos(&cursorPt);
         float cX = static_cast<float>(cursorPt.x - g_canvasLeft);
@@ -3059,10 +3039,8 @@ void RenderWorkerLoop() {
         float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
         float maxLeafPileH = static_cast<float>(cfg.leafPileMaxHeightPx);
 
-        // Курсор по сугробам (SnowCap)
         if (cfg.cursorAction != CursorActionMode::None && cMoveLen > 0.5f) {
             float dirX = cDx / cMoveLen;
-            // Нижний сугроб
             if (cfg.enableBottomAccumulation && std::abs(cY - bottomRelY) < cRad) {
                 int from = std::clamp(static_cast<int>(cX - cRad * 0.6f), 0, static_cast<int>(g_bottomSnowCap.cols.size()) - 1);
                 int to = std::clamp(static_cast<int>(cX + cRad * 0.6f), 0, static_cast<int>(g_bottomSnowCap.cols.size()) - 1);
@@ -3094,7 +3072,6 @@ void RenderWorkerLoop() {
                 }
             }
 
-            // Сугробы на окнах
             if (cfg.enableWindowAccumulation) {
                 for (size_t idx = 0; idx < windows.size(); ++idx) {
                     const VisibleWindow& vw = windows[idx];
@@ -3103,10 +3080,11 @@ void RenderWorkerLoop() {
                     if (IsPointOccludedAbove(windows, idx, cX, static_cast<float>(vw.rect.top) - 2.0f)) continue;
 
                     auto capIt = g_windowSnowCaps.find(vw.hwnd);
-                    if (capIt == g_windowSnowCaps.end()) continue;
+                    if (capIt == g_windowSnowCaps.end() || capIt->second.cols.empty()) continue;
                     SnowCap& cap = capIt->second;
-                    int from = std::clamp(static_cast<int>(cX - cRad * 0.6f) - vw.rect.left, 0, static_cast<int>(cap.cols.size()) - 1);
-                    int to = std::clamp(static_cast<int>(cX + cRad * 0.6f) - vw.rect.left, 0, static_cast<int>(cap.cols.size()) - 1);
+                    int maxColIdx = static_cast<int>(cap.cols.size()) - 1;
+                    int from = std::clamp(static_cast<int>(cX - cRad * 0.6f) - static_cast<int>(vw.rect.left), 0, maxColIdx);
+                    int to = std::clamp(static_cast<int>(cX + cRad * 0.6f) - static_cast<int>(vw.rect.left), 0, maxColIdx);
                     float scooped = 0.0f;
                     for (int c = from; c <= to; ++c) {
                         if (cap.cols[c].h > 0.2f) {
@@ -3138,7 +3116,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Обновление отдельных опавших объектов (листья, лепестки, град, лужи)
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -3224,7 +3201,6 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление единых куч листьев и лепестков (1 на поверхность)
         for (size_t i = 0; i < g_piles.size();) {
             FoliagePile& pile = g_piles[i];
             pile.ageSec += dt;
@@ -3273,7 +3249,6 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление снежных шариков (1 на поверхность): поглощение снега из сугроба при катании и рассыпание при падении вниз
         for (size_t i = 0; i < g_snowballs.size();) {
             Snowball& sb = g_snowballs[i];
             sb.ageSec += dt;
@@ -3291,7 +3266,8 @@ void RenderWorkerLoop() {
                 sb.squashVel += (-220.0f * sb.squash - 16.0f * sb.squashVel) * dt;
                 sb.squash = std::clamp(sb.squash + sb.squashVel * dt, -0.35f, 0.35f);
                 if (std::abs(sb.squash) < 0.002f && std::abs(sb.squashVel) < 0.02f) {
-                    sb.squash = sb.squashVel = 0.0f;
+                    sb.squash = 0.0f;
+                    sb.squashVel = 0.0f;
                 }
             }
 
@@ -3312,11 +3288,11 @@ void RenderWorkerLoop() {
                     sb.relX += sb.vx * dt;
                     sb.vx *= std::pow(0.15f, dt);
 
-                    // Поглощаем снег из сугроба окна при катании
                     if (sb.radius < maxBallR && std::abs(sb.vx) > 2.0f) {
                         auto capIt = g_windowSnowCaps.find(sb.hostWindow);
-                        if (capIt != g_windowSnowCaps.end()) {
-                            int cIdx = std::clamp(static_cast<int>(sb.relX), 0, static_cast<int>(capIt->second.cols.size()) - 1);
+                        if (capIt != g_windowSnowCaps.end() && !capIt->second.cols.empty()) {
+                            int maxColIdx = static_cast<int>(capIt->second.cols.size()) - 1;
+                            int cIdx = std::clamp(static_cast<int>(sb.relX), 0, maxColIdx);
                             float h = capIt->second.cols[cIdx].h;
                             if (h > 0.2f) {
                                 capIt->second.cols[cIdx].h = 0.0f;
