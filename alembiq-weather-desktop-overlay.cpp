@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         1.3.0
+// @version         1.3.1
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -46,11 +46,11 @@
   $description: "Comma-separated executable names (kept for compatibility). Default: obs64.exe, ApplicationFrameHost.exe."
 - cursorAction: clear
   $name: "[System] Cursor action"
-  $description: "none = ignore cursor; clear = erase fallen items on touch (extra-snow snowman scattered by click); push = gently scatter/push and roll extra-snow snowman."
+  $description: "none = ignore cursor; clear = erase fallen items on touch (extra-snow snowman scattered by click); push = builds extra-snow snowman until assembled, then pushes/scatters particles."
   $options:
     - none: None (ignore cursor)
     - clear: Clear (erase fallen items; click scatters snowman)
-    - push: Push (gently scatter/push & roll extra-snow snowman)
+    - push: Push (assemble snowman, then push/scatter)
 - cursorRadiusPx: 95
   $name: "[System] Cursor radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
@@ -640,6 +640,11 @@ std::vector<BottomSnowball> g_bottomSnowballs;
 std::vector<SnowChunk> g_chunks;
 SnowCap g_bottomSnowCap;
 LightningFlash g_lightning;
+
+bool IsSnowmanFullyAssembled(const std::vector<BottomSnowball>& balls) {
+    if (balls.size() < kMaxSnowmanBalls) return false;
+    return balls[1].stacked && balls[2].stacked;
+}
 
 void RefreshArcCache(CachedArcLayout& cache, const ArcGeometry& geom) {
     if (cache.valid && cache.canvasW == g_canvasWidth && cache.canvasH == g_canvasHeight &&
@@ -1392,7 +1397,6 @@ float ComputeMaxCapHeightPx(const Settings& cfg) {
 }
 
 void OnSeasonalModeChanged(bool extraSnowActive) {
-    // Убираем сезонные опавшие объекты другого сезона; снеговик живет только при extra_snow
     g_fallen.erase(
         std::remove_if(g_fallen.begin(), g_fallen.end(),
                        [extraSnowActive](const FallenItem& fo) {
@@ -2376,7 +2380,6 @@ void RenderWorkerLoop() {
             ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, true) * 1.2)
             : 0;
 
-        // Обновляем g_falling in-place без пересоздания вектора на каждом кадре
         size_t desiredCount = targetP + targetS;
         size_t prevCount = g_falling.size();
         if (g_falling.size() != desiredCount) {
@@ -2500,8 +2503,8 @@ void RenderWorkerLoop() {
 
         float cRad = static_cast<float>(cfg.cursorRadiusPx);
         float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
+        bool snowmanAssembled = IsSnowmanFullyAssembled(g_bottomSnowballs);
 
-        // Клик левой кнопкой по снеговику/шарам рассыпает его на комки (без глобального WH_MOUSE_LL хука)
         bool leftBtnDown = !g_bottomSnowballs.empty() && ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0);
         if (leftBtnDown && !prevLeftBtnDown) {
             float bx[kMaxSnowmanBalls] = {};
@@ -2534,12 +2537,14 @@ void RenderWorkerLoop() {
                     }
                 }
                 g_bottomSnowballs.clear();
+                snowmanAssembled = false;
             }
         }
         prevLeftBtnDown = leftBtnDown;
 
-        // Лепка снеговика только из активного сезонного снега (extra_snow)
-        if (extraSnowActive && cfg.enableBottomAccumulation &&
+        // В режиме push: до полной сборки снеговика курсор собирает сезонный снег в шары;
+        // после полной сборки — больше не собирает снег, а расталкивает частицы как листья и лепестки.
+        if (extraSnowActive && cfg.enableBottomAccumulation && !snowmanAssembled &&
             cfg.cursorAction == CursorActionMode::Push &&
             cMoveLen > 0.5f && std::abs(cY - bottomRelY) < cRad && !g_bottomSnowCap.cols.empty()) {
             int activeBallIdx = -1;
@@ -2589,7 +2594,7 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Легкая и чистая работа с опавшими листьями, лепестками, градом и лужами
+        // Работа с опавшими листьями, лепестками, градом и лужами
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -2635,7 +2640,7 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление шаров снеговика (только при активном сезонном снеге)
+        // Обновление шаров снеговика и сборка
         if (extraSnowActive && !g_bottomSnowballs.empty()) {
             float bx[kMaxSnowmanBalls] = {};
             float by[kMaxSnowmanBalls] = {};
@@ -2682,7 +2687,13 @@ void RenderWorkerLoop() {
                 if (cfg.cursorAction == CursorActionMode::Push &&
                     std::abs(dx) < reach && std::abs(dy) < reach &&
                     (dx * dx + dy * dy) < reach * reach) {
-                    if (cMoveLen > 0.5f) {
+                    if (snowmanAssembled) {
+                        // После полной сборки снеговика курсор в режиме push расталкивает его в стороны
+                        float awaySign = (dx >= 0.0f) ? 1.0f : -1.0f;
+                        float dist = std::sqrt(dx * dx + dy * dy);
+                        float pushForce = (1.0f - dist / reach) * 140.0f * dt;
+                        sb.vx += awaySign * pushForce;
+                    } else if (cMoveLen > 0.5f) {
                         float moveFactor = (sb.slot == 0) ? 75.0f : 185.0f;
                         sb.vx += (cDx / cMoveLen) * moveFactor * dt;
                     } else {
