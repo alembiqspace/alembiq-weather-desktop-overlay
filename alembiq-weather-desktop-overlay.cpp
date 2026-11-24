@@ -2,97 +2,108 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.3.0
+// @version         0.3.1
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
 
+// ==WindhawkMod==
+// @id              desktop-weather-overlay
+// @name            Desktop Weather & Particles Overlay
+// @description     Desktop weather precipitation, seasonal falling objects, and atmospheric effects under desktop icons with fallen-object window and cursor physics.
+// @version         0.4.1
+// @author          Custom
+// @github          https://github.com/
+// @include         explorer.exe
+// @compilerOptions -ld2d1 -ldwrite -lwininet -ldwmapi -luser32 -lgdi32 -lshell32 -lole32
+// ==/WindhawkMod==
+
 // ==WindhawkModSettings==
 /*
 - layerAttachMode: auto
   $name: Layer attach mode
-  $description: Controls Z-order placement of the overlay. Allowed values: auto, progman_direct, desktop_bottom. Default: auto.
+  $description: "Controls Z-order placement of the overlay. Allowed values: auto, progman_direct, desktop_bottom. Default: auto."
   $options:
     - auto: Auto (below SHELLDLL_DefView icons)
     - progman_direct: Progman reference
     - desktop_bottom: Bottom of Z-order (HWND_BOTTOM)
 - bottomBoundaryMode: above_taskbar
   $name: Bottom accumulation boundary
-  $description: Sets the bottom reference line for fallen objects. Allowed values: above_taskbar, screen_bottom, custom_offset. Default: above_taskbar.
+  $description: "Sets the bottom reference line for fallen objects. Allowed values: above_taskbar, screen_bottom, custom_offset. Default: above_taskbar."
   $options:
     - above_taskbar: Above taskbar (Shell_TrayWnd)
     - screen_bottom: Bottom edge of screen
     - custom_offset: Custom offset from bottom (px)
 - bottomOffsetPx: 0
   $name: Custom bottom offset (px)
-  $description: Vertical offset in pixels above the bottom edge when bottomBoundaryMode is custom_offset. Range: -500 to 1000. Default: 0.
+  $description: "Vertical offset in pixels above the bottom edge when bottomBoundaryMode is custom_offset. Range: -500 to 1000. Default: 0."
 - multiMonitorMode: primary
   $name: Monitors
-  $description: Selects primary monitor or full virtual screen across multiple monitors. Allowed values: primary, all. Default: primary.
+  $description: "Selects primary monitor or full virtual screen across multiple monitors. Allowed values: primary, all. Default: primary."
   $options:
     - primary: Primary monitor
     - all: All monitors (virtual screen)
 
 - primarySource: open_meteo
   $name: Primary weather source
-  $description: Primary forecast provider used when any setting is set to auto. Allowed values: open_meteo, custom_api, local_file. Default: open_meteo.
+  $description: "Primary forecast provider used when any setting is set to auto. Allowed values: open_meteo, custom_api, local_file. Default: open_meteo."
   $options:
     - open_meteo: Open-Meteo API
     - custom_api: Custom JSON URL
     - local_file: Local file
 - fallbackSource: off
   $name: Fallback weather source
-  $description: Secondary source if primary source fails. Allowed values: off, open_meteo, local_file. Default: off.
+  $description: "Secondary source if primary source fails. Allowed values: off, open_meteo, local_file. Default: off."
   $options:
     - off: Off
     - open_meteo: Open-Meteo API
     - local_file: Local file
 - latitude: "44.7866"
   $name: Latitude
-  $description: Geographic latitude in decimal degrees for Open-Meteo. Range: -90.0 to 90.0. Default: 44.7866.
+  $description: "Geographic latitude in decimal degrees for Open-Meteo. Range: -90.0 to 90.0. Default: 44.7866."
 - longitude: "20.4489"
   $name: Longitude
-  $description: Geographic longitude in decimal degrees for Open-Meteo. Range: -180.0 to 180.0. Default: 20.4489.
+  $description: "Geographic longitude in decimal degrees for Open-Meteo. Range: -180.0 to 180.0. Default: 20.4489."
 - customApiUrl: ""
   $name: Custom JSON API URL
-  $description: HTTP/HTTPS endpoint returning weather JSON fields (weather_code, condition, wind_speed_10m, wind_direction_10m). Default: empty.
+  $description: "HTTP/HTTPS endpoint returning weather JSON fields (weather_code, condition, wind_speed_10m, wind_direction_10m). Default: empty."
 - localWeatherPath: ""
   $name: Local weather file path
-  $description: Local file path containing JSON or weather keywords. Default: empty.
+  $description: "Local file path containing JSON or weather keywords. Default: empty."
 - updateIntervalMin: 30
   $name: Weather update interval (min)
-  $description: Forecast polling interval in minutes. Range: 1 to 1440. Out-of-range values clamp to bounds. Default: 30.
+  $description: "Forecast polling interval in minutes. Range: 1 to 1440. Out-of-range values clamp to bounds. Default: 30."
 
 - springStart: "01.03"
   $name: Spring start (DD.MM)
-  $description: Start date of spring in DD.MM format (01.01 to 31.12). Default: 01.03.
+  $description: "Start date of spring in DD.MM format (01.01 to 31.12). Default: 01.03."
 - springEnd: "31.05"
   $name: Spring end (DD.MM)
-  $description: End date of spring in DD.MM format (01.01 to 31.12). Default: 31.05.
+  $description: "End date of spring in DD.MM format (01.01 to 31.12). Default: 31.05."
 - summerStart: "01.06"
   $name: Summer start (DD.MM)
-  $description: Start date of summer in DD.MM format (01.01 to 31.12). Default: 01.06.
+  $description: "Start date of summer in DD.MM format (01.01 to 31.12). Default: 01.06."
 - summerEnd: "31.08"
   $name: Summer end (DD.MM)
-  $description: End date of summer in DD.MM format (01.01 to 31.12). Default: 31.08.
+  $description: "End date of summer in DD.MM format (01.01 to 31.12). Default: 31.08."
 - autumnStart: "01.09"
   $name: Autumn start (DD.MM)
-  $description: Start date of autumn in DD.MM format (01.01 to 31.12). Default: 01.09.
+  $description: "Start date of autumn in DD.MM format (01.01 to 31.12). Default: 01.09."
 - autumnEnd: "30.11"
   $name: Autumn end (DD.MM)
-  $description: End date of autumn in DD.MM format (01.01 to 31.12). Default: 30.11.
+  $description: "End date of autumn in DD.MM format (01.01 to 31.12). Default: 30.11."
 - winterStart: "01.12"
   $name: Winter start (DD.MM)
-  $description: Start date of winter in DD.MM format (supports year wrap, e.g. 01.12). Default: 01.12.
+  $description: "Start date of winter in DD.MM format (supports year wrap, e.g. 01.12). Default: 01.12."
 - winterEnd: "29.02"
   $name: Winter end (DD.MM)
-  $description: End date of winter in DD.MM format (supports year wrap, e.g. 29.02). Default: 29.02.
+  $description: "End date of winter in DD.MM format (supports year wrap, e.g. 29.02). Default: 29.02."
 
 - precipitationMode: auto
   $name: Precipitation mode
-  $description: Controls weather precipitation layer. Allowed values: off, auto, rain, snow, hail. Default: auto.
+  $description: "Controls weather precipitation layer. Allowed values: off, auto, rain, snow, hail. Default: auto."
   $options:
     - off: Off
     - auto: Auto (forecast)
@@ -101,7 +112,7 @@
     - hail: Hail
 - precipFallDirection: auto
   $name: Precipitation fall direction
-  $description: Direction of falling precipitation. Allowed values: auto, down, down_left, down_right. In auto mode, wind direction maps north/west to down_left and south/east to down_right (or down when calm). Default: auto.
+  $description: "Direction of falling precipitation. Allowed values: auto, down, down_left, down_right. In auto mode, wind direction maps north/west to down_left and south/east to down_right (or down when calm). Default: auto."
   $options:
     - auto: Auto (forecast)
     - down: Down
@@ -109,47 +120,47 @@
     - down_right: Down-right
 - precipFallSpeedMps: "6.5"
   $name: Precipitation fall speed (m/s)
-  $description: Vertical fall speed of precipitation in m/s (scaled to screen motion). Range: 0.1 to 50.0. Default: 6.5.
+  $description: "Vertical fall speed of precipitation in m/s (scaled to screen motion). Range: 0.1 to 50.0. Default: 6.5."
 - rainIntensity: 25
   $name: Rain intensity (%)
-  $description: Rain intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Rain intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - snowIntensity: 25
   $name: Snow intensity (%)
-  $description: Snow intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Snow intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - hailIntensity: 25
   $name: Hail intensity (%)
-  $description: Hail intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Hail intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - rainMaxAccumulated: 180
   $name: Rain puddles max count
-  $description: Maximum accumulated rain/puddle markers on screen. Range: 0 to 2000 (0 disables accumulation). Default: 180.
+  $description: "Maximum accumulated rain/puddle markers on screen. Range: 0 to 2000 (0 disables accumulation). Default: 180."
 - snowMaxAccumulated: 260
   $name: Snow accumulation max count
-  $description: Maximum accumulated snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 260.
+  $description: "Maximum accumulated snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 260."
 - hailMaxAccumulated: 220
   $name: Hail accumulation max count
-  $description: Maximum accumulated hail stones on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+  $description: "Maximum accumulated hail stones on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220."
 - rainLifetimeMin: "3.0"
   $name: Rain puddles lifetime (min)
-  $description: Auto-disappear time for accumulated rain elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 3.0.
+  $description: "Auto-disappear time for accumulated rain elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 3.0."
 - snowLifetimeMin: "15.0"
   $name: Snow accumulation lifetime (min)
-  $description: Auto-disappear time for accumulated snow elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0.
+  $description: "Auto-disappear time for accumulated snow elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0."
 - hailLifetimeMin: "10.0"
   $name: Hail accumulation lifetime (min)
-  $description: Auto-disappear time for accumulated hail elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 10.0.
+  $description: "Auto-disappear time for accumulated hail elements in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 10.0."
 - colorRain: ""
   $name: Rain color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default sky-blue rain color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default sky-blue rain color."
 - colorSnow: ""
   $name: Snow color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default white snow color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default white snow color."
 - colorHail: ""
   $name: Hail color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default ice-blue hail color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default ice-blue hail color."
 
 - seasonalObjectMode: auto
   $name: Seasonal falling objects mode
-  $description: Controls seasonal/general falling objects. Allowed values: off, auto, autumn_leaves, extra_snow, petals. Default: auto.
+  $description: "Controls seasonal/general falling objects. Allowed values: off, auto, autumn_leaves, extra_snow, petals. Default: auto."
   $options:
     - off: Off
     - auto: Auto (season)
@@ -158,7 +169,7 @@
     - petals: Petals
 - seasonalFallDirection: auto
   $name: Seasonal objects fall direction
-  $description: Fall direction for seasonal objects. Allowed values: auto, down, down_left, down_right. Default: auto.
+  $description: "Fall direction for seasonal objects. Allowed values: auto, down, down_left, down_right. Default: auto."
   $options:
     - auto: Auto (forecast)
     - down: Down
@@ -166,182 +177,182 @@
     - down_right: Down-right
 - seasonalFallSpeedMps: "2.2"
   $name: Seasonal objects fall speed (m/s)
-  $description: Vertical fall speed of seasonal objects in m/s. Range: 0.1 to 30.0. Default: 2.2.
+  $description: "Vertical fall speed of seasonal objects in m/s. Range: 0.1 to 30.0. Default: 2.2."
 - autumnLeavesIntensity: 25
   $name: Autumn leaves intensity (%)
-  $description: Autumn leaves intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Autumn leaves intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - extraSnowIntensity: 25
   $name: Extra snow intensity (%)
-  $description: Extra snow layer intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Extra snow layer intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - petalsIntensity: 25
   $name: Petals intensity (%)
-  $description: Falling petals intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25.
+  $description: "Falling petals intensity percentage. Valid range: 0 to 100. Any value outside 0..100 resets to default 25."
 - autumnLeavesMaxAccumulated: 220
   $name: Autumn leaves max count
-  $description: Maximum accumulated autumn leaves on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+  $description: "Maximum accumulated autumn leaves on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220."
 - extraSnowMaxAccumulated: 240
   $name: Extra snow max count
-  $description: Maximum accumulated extra snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 240.
+  $description: "Maximum accumulated extra snow elements on screen. Range: 0 to 2000 (0 disables accumulation). Default: 240."
 - petalsMaxAccumulated: 220
   $name: Petals max count
-  $description: Maximum accumulated petals on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220.
+  $description: "Maximum accumulated petals on screen. Range: 0 to 2000 (0 disables accumulation). Default: 220."
 - autumnLeavesLifetimeMin: "20.0"
   $name: Autumn leaves lifetime (min)
-  $description: Auto-disappear time for accumulated autumn leaves in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 20.0.
+  $description: "Auto-disappear time for accumulated autumn leaves in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 20.0."
 - extraSnowLifetimeMin: "15.0"
   $name: Extra snow lifetime (min)
-  $description: Auto-disappear time for accumulated extra snow in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0.
+  $description: "Auto-disappear time for accumulated extra snow in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 15.0."
 - petalsLifetimeMin: "12.0"
   $name: Petals lifetime (min)
-  $description: Auto-disappear time for accumulated petals in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 12.0.
+  $description: "Auto-disappear time for accumulated petals in minutes. Range: -1 to 1440 (-1 disables auto-disappear). Default: 12.0."
 - colorAutumnLeaves: ""
   $name: Autumn leaves color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm amber/orange leaf color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default warm amber/orange leaf color."
 - colorExtraSnow: ""
   $name: Extra snow color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft snow-white color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default soft snow-white color."
 - colorPetals: ""
   $name: Petals color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft pink petal color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default soft pink petal color."
 
 - effectClear: auto
   $name: "Effect: Clear"
-  $description: Controls clear sky glow effect. Allowed values: auto, on, off. Multiple effects can be active simultaneously. Default: auto.
+  $description: "Controls clear sky glow effect. Allowed values: auto, on, off. Multiple effects can be active simultaneously. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectPartlyCloudy: auto
   $name: "Effect: Partly cloudy"
-  $description: Controls partly cloudy soft cloud tint. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls partly cloudy soft cloud tint. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectOvercast: auto
   $name: "Effect: Overcast"
-  $description: Controls overcast gray sky veil. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls overcast gray sky veil. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectDust: auto
   $name: "Effect: Dust"
-  $description: Controls airborne dust haze/motes. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls airborne dust haze/motes. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectFog: auto
   $name: "Effect: Fog"
-  $description: Controls soft fog layer. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls soft fog layer. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectSmog: auto
   $name: "Effect: Smog"
-  $description: Controls dense smog tint. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls dense smog tint. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectRainbow: auto
   $name: "Effect: Rainbow"
-  $description: Controls rainbow arc overlay. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls rainbow arc overlay. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectHalo: auto
   $name: "Effect: Halo"
-  $description: Controls atmospheric light halo ring. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls atmospheric light halo ring. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectThunderstorm: auto
   $name: "Effect: Thunderstorm"
-  $description: Controls storm darkening and lightning flashes. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls storm darkening and lightning flashes. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectAurora: auto
   $name: "Effect: Aurora"
-  $description: Controls aurora ribbons in upper screen area. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls aurora ribbons in upper screen area. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectMirage: auto
   $name: "Effect: Mirage"
-  $description: Controls shimmer/mirage band near lower horizon. Allowed values: auto, on, off. Default: auto.
+  $description: "Controls shimmer/mirage band near lower horizon. Allowed values: auto, on, off. Default: auto."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectsIntensity: 25
   $name: General effects intensity (%)
-  $description: Opacity/strength percentage for general atmospheric effects. Valid range: 0 to 100. Outside 0..100 resets to default 25.
+  $description: "Opacity/strength percentage for general atmospheric effects. Valid range: 0 to 100. Outside 0..100 resets to default 25."
 - colorClear: ""
   $name: Clear effect color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm sunlight tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default warm sunlight tint."
 - colorPartlyCloudy: ""
   $name: Partly cloudy color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default soft cloud tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default soft cloud tint."
 - colorOvercast: ""
   $name: Overcast color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default slate-gray overcast tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default slate-gray overcast tint."
 - colorDust: ""
   $name: Dust color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm sand-dust tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default warm sand-dust tint."
 - colorFog: ""
   $name: Fog color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default pale mist color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default pale mist color."
 - colorSmog: ""
   $name: Smog color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default brownish-gray smog tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default brownish-gray smog tint."
 - colorRainbow: ""
   $name: Rainbow accent color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses multi-band spectrum colors.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses multi-band spectrum colors."
 - colorHalo: ""
   $name: Halo color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default pale solar/lunar halo tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default pale solar/lunar halo tint."
 - colorThunderstorm: ""
   $name: Thunderstorm flash color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default electric blue-white lightning color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default electric blue-white lightning color."
 - colorAurora: ""
   $name: Aurora color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default aurora green-cyan color.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default aurora green-cyan color."
 - colorMirage: ""
   $name: Mirage color (#RRGGBB)
-  $description: Optional custom HEX color (#RRGGBB). Empty string uses default warm shimmer tint.
+  $description: "Optional custom HEX color (#RRGGBB). Empty string uses default warm shimmer tint."
 
 - particleScale: "1.0"
   $name: Object size scale
-  $description: Visual size multiplier for falling and fallen objects. Range: 0.3 to 4.0. Default: 1.0.
+  $description: "Visual size multiplier for falling and fallen objects. Range: 0.3 to 4.0. Default: 1.0."
 - windowShakeSensitivity: 55
   $name: Fallen shed sensitivity on window move (1..100)
-  $description: How easily fallen objects on window tops detach when moving/shaking a window. Range: 1 to 100. Default: 55.
+  $description: "How easily fallen objects on window tops detach when moving/shaking a window. Range: 1 to 100. Default: 55."
 - windowInertiaFactor: "0.75"
   $name: Fallen shed inertia factor
-  $description: Horizontal velocity transfer to detached fallen objects. Range: 0.0 to 3.0. Default: 0.75.
+  $description: "Horizontal velocity transfer to detached fallen objects. Range: 0.0 to 3.0. Default: 0.75."
 - cursorInteraction: true
   $name: Cursor affects fallen objects only
-  $description: When enabled, moving the cursor pushes/scatters fallen objects only (falling objects are unaffected). Default: true.
+  $description: "When enabled, moving the cursor pushes/scatters fallen objects only (falling objects are unaffected). Default: true."
 - cursorRadiusPx: 95
   $name: Cursor radius (px)
-  $description: Radius around cursor in pixels affecting fallen objects. Range: 10 to 500. Default: 95.
+  $description: "Radius around cursor in pixels affecting fallen objects. Range: 10 to 500. Default: 95."
 - targetFps: 60
   $name: Target FPS (30 or 60)
-  $description: Frame rate cap for rendering loop. Allowed values: 30 or 60. Default: 60.
+  $description: "Frame rate cap for rendering loop. Allowed values: 30 or 60. Default: 60."
 - pauseOnFullscreen: true
   $name: Pause on fullscreen apps
-  $description: Pauses animation while a fullscreen application is active. Default: true.
+  $description: "Pauses animation while a fullscreen application is active. Default: true."
 - excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
   $name: Excluded processes (comma-separated)
-  $description: Process executable names (comma-separated) excluded from window accumulation/shedding. Default: obs64.exe, ApplicationFrameHost.exe.
+  $description: "Process executable names (comma-separated) excluded from window accumulation/shedding. Default: obs64.exe, ApplicationFrameHost.exe."
 */
 // ==/WindhawkModSettings==
 
@@ -576,7 +587,7 @@ Settings g_settings;
 
 bool g_hasForecastPrecip = false;
 ObjectKind g_forecastPrecip = ObjectKind::Rain;
-int g_forecastWindDirSign = 0; // -1 left, 0 none, +1 right
+int g_forecastWindDirSign = 0;
 double g_forecastWindSpeedKmh = 0.0;
 GeneralEffectsState g_forecastEffects;
 
@@ -697,8 +708,6 @@ FallDirMode ParseFallDir(const std::wstring& s) {
 int WindDegToSign(double deg) {
     double norm = std::fmod(deg, 360.0);
     if (norm < 0.0) norm += 360.0;
-    // Север (315..360, 0..45) и Запад (225..315) -> влево (-1)
-    // Восток (45..135) и Юг (135..225) -> вправо (+1)
     if (norm >= 45.0 && norm < 225.0) return 1;
     return -1;
 }
@@ -1571,7 +1580,6 @@ float ComputeHorizontalSpeedPxPerSec(FallDirMode dirMode, double mpsSpeed, int f
     if (dirMode == FallDirMode::DownLeft) return -basePx;
     if (dirMode == FallDirMode::DownRight) return basePx;
 
-    // FallDirMode::Auto
     if (forecastSign == 0 || forecastWindKmh <= 0.2) return 0.0f;
     float windFactor = std::clamp(static_cast<float>(forecastWindKmh) / 20.0f, 0.25f, 2.5f);
     return static_cast<float>(forecastSign) * basePx * windFactor;
@@ -1637,7 +1645,6 @@ void RenderWorkerLoop() {
         lastTime = now;
         dt = std::clamp(dt, 0.001f, 0.05f);
 
-        // Определяем осадки
         bool activePrecip = false;
         ObjectKind precipKind = ObjectKind::Rain;
         if (cfg.precipitationMode == PrecipMode::Rain) { activePrecip = true; precipKind = ObjectKind::Rain; }
@@ -1645,7 +1652,6 @@ void RenderWorkerLoop() {
         else if (cfg.precipitationMode == PrecipMode::Hail) { activePrecip = true; precipKind = ObjectKind::Hail; }
         else if (cfg.precipitationMode == PrecipMode::Auto && hasForecastP) { activePrecip = true; precipKind = forecastP; }
 
-        // Определяем сезонные/общие падающие объекты
         bool activeSeasonal = false;
         ObjectKind seasonalKind = ObjectKind::AutumnLeaves;
         if (cfg.seasonalObjectMode == SeasonalMode::AutumnLeaves) { activeSeasonal = true; seasonalKind = ObjectKind::AutumnLeaves; }
@@ -1658,7 +1664,6 @@ void RenderWorkerLoop() {
             else if (detected == SeasonalMode::Petals) { activeSeasonal = true; seasonalKind = ObjectKind::Petals; }
         }
 
-        // Определяем общие эффекты (каждый независимо: auto / on / off)
         auto resolveEffect = [&](TriStateMode mode, bool autoVal) -> bool {
             if (mode == TriStateMode::On) return true;
             if (mode == TriStateMode::Off) return false;
@@ -1729,7 +1734,6 @@ void RenderWorkerLoop() {
         }
         g_falling.swap(nextFalling);
 
-        // Отслеживание окон и срыв ОПАВШИХ объектов при перемещении/встряске окна
         std::vector<std::wstring> excluded = SplitExcluded(cfg.excludedProcesses);
         std::vector<HWND> activeHwnds;
         EnumCtx ctx{&excluded, &activeHwnds};
@@ -1793,7 +1797,6 @@ void RenderWorkerLoop() {
         int bottomLimitY = ComputeBottomLimitY(cfg);
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-        // Подсчет текущего накопления по каждому типу
         auto countAccumulated = [&](ObjectKind k, bool isS) -> int {
             int c = 0;
             for (const auto& fo : g_fallen) {
@@ -1802,7 +1805,6 @@ void RenderWorkerLoop() {
             return c;
         };
 
-        // Движение падающих объектов (курсор и перемещение окон на них не влияют)
         for (size_t i = 0; i < g_falling.size(); ++i) {
             FallingItem& p = g_falling[i];
             float vx = p.isSeasonalLayer ? seasonalVx : precipVx;
@@ -1861,7 +1863,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Взаимодействие с курсором и время жизни — только для опавших объектов
         POINT cursorPt = {};
         GetCursorPos(&cursorPt);
         float cX = static_cast<float>(cursorPt.x - g_canvasLeft);
