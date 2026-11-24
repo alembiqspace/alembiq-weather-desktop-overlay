@@ -2,111 +2,112 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.2.0
-// @author          Custom
+// @version         0.2.1
+// @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
 
-/* ==WindhawkModSettings==
+// ==WindhawkModSettings==
+/*
 - layerAttachMode: auto
-  $name: Привязка слоя рабочего стола
-  $description: Выбор способа размещения слоя над обоями и под иконками рабочего стола
+  $name: Layer attach mode
+  $description: Where to place the overlay relative to wallpaper and desktop icons
   $options:
-    - auto: Авто (под иконками SHELLDLL_DefView)
-    - progman_direct: Привязка к окну Progman
-    - desktop_bottom: Поверх обоев (HWND_BOTTOM)
+    - auto: Auto (below SHELLDLL_DefView icons)
+    - progman_direct: Progman reference
+    - desktop_bottom: Bottom of Z-order (HWND_BOTTOM)
 - bottomBoundaryMode: above_taskbar
-  $name: Нижняя граница накопления
-  $description: Где накапливаются осадки в нижней части экрана
+  $name: Bottom accumulation boundary
   $options:
-    - above_taskbar: Над панелью задач (Shell_TrayWnd)
-    - screen_bottom: По нижнему краю экрана
-    - custom_offset: Ручной отступ снизу (px)
+    - above_taskbar: Above taskbar (Shell_TrayWnd)
+    - screen_bottom: Bottom edge of screen
+    - custom_offset: Custom offset from bottom (px)
 - bottomOffsetPx: 0
-  $name: Ручной отступ снизу (px)
+  $name: Custom bottom offset (px)
 - multiMonitorMode: primary
-  $name: Мониторы
+  $name: Monitors
   $options:
-    - primary: Основной монитор
-    - all: Все мониторы (виртуальный экран)
+    - primary: Primary monitor
+    - all: All monitors (virtual screen)
 - weatherMode: manual
-  $name: Режим погоды
+  $name: Weather mode
   $options:
-    - manual: Ручной
-    - auto: Автоматический по прогнозу
+    - manual: Manual
+    - auto: Automatic from forecast
 - manualWeather: snow
-  $name: Погода (ручной режим)
+  $name: Manual weather
   $options:
-    - clear: Солнечно
-    - rain: Дождь
-    - snow: Снег
-    - fog: Туман
-    - wind: Ветер
+    - clear: Clear
+    - rain: Rain
+    - snow: Snow
+    - fog: Fog
+    - wind: Wind
 - precipitationType: snow
-  $name: Тип частиц / осадков
+  $name: Precipitation type
   $options:
-    - snow: Снег (зима)
-    - rain: Дождь
-    - leaves: Падающие листья (осень)
-    - poplar_fluff: Тополиный пух (лето)
-    - sakura: Лепестки сакуры (весна)
+    - snow: Snow (winter)
+    - rain: Rain
+    - leaves: Falling leaves (autumn)
+    - poplar_fluff: Poplar fluff (summer)
+    - sakura: Sakura petals (spring)
 - primarySource: open_meteo
-  $name: Основной источник погоды
+  $name: Primary weather source
   $options:
-    - open_meteo: Open-Meteo API (без ключа)
-    - custom_api: Кастомный HTTP/HTTPS JSON URL
-    - local_file: Локальный JSON/текстовый файл
+    - open_meteo: Open-Meteo API (no key)
+    - custom_api: Custom HTTP/HTTPS JSON URL
+    - local_file: Local JSON/text file
 - fallbackSource: manual
-  $name: Резервный источник при ошибке
+  $name: Fallback weather source
   $options:
-    - manual: Ручной режим
+    - manual: Manual mode
     - open_meteo: Open-Meteo API
-    - local_file: Локальный файл
+    - local_file: Local file
 - latitude: "44.7866"
-  $name: Широта (Open-Meteo)
+  $name: Latitude (Open-Meteo)
 - longitude: "20.4489"
-  $name: Долгота (Open-Meteo)
+  $name: Longitude (Open-Meteo)
 - customApiUrl: ""
-  $name: URL кастомного JSON API
+  $name: Custom JSON API URL
 - localWeatherPath: ""
-  $name: Путь к локальному файлу погоды
+  $name: Local weather file path
 - updateIntervalMin: 30
-  $name: Интервал обновления погоды (мин)
+  $name: Weather update interval (min)
 - particleDensity: 45
-  $name: Плотность частиц (на 1000 px)
+  $name: Particle density (per 1000px)
 - particleScale: "1.0"
-  $name: Масштаб частиц (0.5 - 2.5)
+  $name: Particle scale (0.3 - 4.0)
 - windStrength: 15
-  $name: Сила ветра (-100..100)
+  $name: Wind strength (-100..100)
 - atmosphereOpacity: 35
-  $name: Интенсивность тумана / света (0..100%)
+  $name: Fog / sunlight opacity (0..100%)
 - enableBottomAccumulation: true
-  $name: Накопление внизу экрана
+  $name: Bottom accumulation
 - maxBottomHeightPx: 36
-  $name: Макс. высота слоя внизу (px)
+  $name: Max bottom height (px)
 - enableWindowAccumulation: true
-  $name: Накопление на верхнем крае окон
+  $name: Window top accumulation
 - maxWindowHeightPx: 14
-  $name: Макс. высота слоя на окне (px)
+  $name: Max window top height (px)
 - windowShakeSensitivity: 55
-  $name: Чувствительность срыва при движении окна (1..100)
+  $name: Window movement shed sensitivity (1..100)
 - windowInertiaFactor: "0.65"
-  $name: Инерция при срыве с окна (0.0..2.0)
+  $name: Window shed inertia factor (0.0..3.0)
 - cursorInteraction: true
-  $name: Взаимодействие с курсором
+  $name: Cursor interaction
 - cursorRadiusPx: 90
-  $name: Радиус влияния курсора (px)
+  $name: Cursor radius (px)
 - meltSpeed: "1.5"
-  $name: Скорость таяния/испарения (px/сек)
+  $name: Melt / evaporation speed (px/sec)
 - targetFps: 60
-  $name: Целевой FPS (30 или 60)
+  $name: Target FPS (30 or 60)
 - pauseOnFullscreen: true
-  $name: Пауза при полноэкранных окнах
+  $name: Pause on fullscreen apps
 - excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
-  $name: Исключения процессов (через запятую)
-==/WindhawkModSettings== */
+  $name: Excluded processes (comma-separated)
+*/
+// ==/WindhawkModSettings==
 
 #include <windows.h>
 #include <wininet.h>
@@ -768,7 +769,7 @@ bool EnsureLayeredSurface(int width, int height) {
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = width;
-    bmi.bmiHeader.biHeight = -height; // top-down DIB
+    bmi.bmiHeader.biHeight = -height;
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
