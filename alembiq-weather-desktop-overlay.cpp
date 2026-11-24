@@ -1,121 +1,117 @@
 // ==WindhawkMod==
-// @id              desktop-weather-overlay
+// @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.1.0
+// @version         0.2.0
 // @author          Custom
-// @github          https://github.com/
+// @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
 
-// ==WindhawkModSettings==
-// - layerAttachMode: auto
-//   $name: Привязка слоя рабочего стола
-//   $description: Выбор способа размещения слоя над обоями и под иконками рабочего стола
-//   $options:
-//     - auto: Авто (WorkerW / Progman)
-//     - progman_direct: Напрямую в Progman
-//     - desktop_bottom: Поверх обоев (HWND_BOTTOM)
-// - bottomBoundaryMode: above_taskbar
-//   $name: Нижняя граница накопления
-//   $description: Где накапливаются осадки в нижней части экрана
-//   $options:
-//     - above_taskbar: Над панелью задач (Shell_TrayWnd)
-//     - screen_bottom: По нижнему краю экрана
-//     - custom_offset: Ручной отступ снизу (px)
-// - bottomOffsetPx: 0
-//   $name: Ручной отступ снизу (px)
-//   $description: Используется при режиме "Ручной отступ снизу"
-// - multiMonitorMode: primary
-//   $name: Мониторы
-//   $description: Область отрисовки осадков
-//   $options:
-//     - primary: Основной монитор
-//     - all: Все мониторы (виртуальный экран)
-// - weatherMode: manual
-//   $name: Режим погоды
-//   $options:
-//     - manual: Ручной
-//     - auto: Автоматический по прогнозу
-// - manualWeather: snow
-//   $name: Погода (ручной режим)
-//   $options:
-//     - clear: Солнечно
-//     - rain: Дождь
-//     - snow: Снег
-//     - fog: Туман
-//     - wind: Ветер
-// - precipitationType: snow
-//   $name: Тип частиц / осадков
-//   $options:
-//     - snow: Снег (зима)
-//     - rain: Дождь
-//     - leaves: Падающие листья (осень)
-//     - poplar_fluff: Тополиный пух (лето)
-//     - sakura: Лепестки сакуры (весна)
-// - primarySource: open_meteo
-//   $name: Основной источник погоды
-//   $options:
-//     - open_meteo: Open-Meteo API (без ключа)
-//     - custom_api: Кастомный HTTP/HTTPS JSON URL
-//     - local_file: Локальный JSON/текстовый файл
-// - fallbackSource: manual
-//   $name: Резервный источник при ошибке
-//   $options:
-//     - manual: Ручной режим
-//     - open_meteo: Open-Meteo API
-//     - local_file: Локальный файл
-// - latitude: 44.7866
-//   $name: Широта (Open-Meteo)
-// - longitude: 20.4489
-//   $name: Долгота (Open-Meteo)
-// - customApiUrl: ""
-//   $name: URL кастомного JSON API
-//   $description: Ожидает поля вроде weathercode/condition и windspeed (пример в описании кода)
-// - localWeatherPath: ""
-//   $name: Путь к локальному файлу погоды
-// - updateIntervalMin: 30
-//   $name: Интервал обновления погоды (мин)
-// - particleDensity: 45
-//   $name: Плотность частиц (на 1000 px)
-// - particleScale: 1.0
-//   $name: Масштаб частиц (0.5 - 2.5)
-// - windStrength: 15
-//   $name: Сила ветра (-100..100)
-// - atmosphereOpacity: 35
-//   $name: Интенсивность тумана / света (0..100%)
-// - enableBottomAccumulation: true
-//   $name: Накопление внизу экрана
-// - maxBottomHeightPx: 36
-//   $name: Макс. высота слоя внизу (px)
-// - enableWindowAccumulation: true
-//   $name: Накопление на верхнем крае окон
-// - maxWindowHeightPx: 14
-//   $name: Макс. высота слоя на окне (px)
-// - windowShakeSensitivity: 55
-//   $name: Чувствительность срыва при движении окна (1..100)
-// - windowInertiaFactor: 0.65
-//   $name: Инерция при срыве с окна (0.0..2.0)
-// - cursorInteraction: true
-//   $name: Взаимодействие с курсором
-// - cursorRadiusPx: 90
-//   $name: Радиус влияния курсора (px)
-// - meltSpeed: 1.5
-//   $name: Скорость таяния/испарения (px/сек)
-// - targetFps: 60
-//   $name: Целевой FPS (30 или 60)
-// - pauseOnFullscreen: true
-//   $name: Пауза при полноэкранных окнах
-// - excludedProcesses: obs64.exe, ApplicationFrameHost.exe
-//   $name: Исключения процессов (через запятую)
-// ==/WindhawkModSettings==
+/* ==WindhawkModSettings==
+- layerAttachMode: auto
+  $name: Привязка слоя рабочего стола
+  $description: Выбор способа размещения слоя над обоями и под иконками рабочего стола
+  $options:
+    - auto: Авто (под иконками SHELLDLL_DefView)
+    - progman_direct: Привязка к окну Progman
+    - desktop_bottom: Поверх обоев (HWND_BOTTOM)
+- bottomBoundaryMode: above_taskbar
+  $name: Нижняя граница накопления
+  $description: Где накапливаются осадки в нижней части экрана
+  $options:
+    - above_taskbar: Над панелью задач (Shell_TrayWnd)
+    - screen_bottom: По нижнему краю экрана
+    - custom_offset: Ручной отступ снизу (px)
+- bottomOffsetPx: 0
+  $name: Ручной отступ снизу (px)
+- multiMonitorMode: primary
+  $name: Мониторы
+  $options:
+    - primary: Основной монитор
+    - all: Все мониторы (виртуальный экран)
+- weatherMode: manual
+  $name: Режим погоды
+  $options:
+    - manual: Ручной
+    - auto: Автоматический по прогнозу
+- manualWeather: snow
+  $name: Погода (ручной режим)
+  $options:
+    - clear: Солнечно
+    - rain: Дождь
+    - snow: Снег
+    - fog: Туман
+    - wind: Ветер
+- precipitationType: snow
+  $name: Тип частиц / осадков
+  $options:
+    - snow: Снег (зима)
+    - rain: Дождь
+    - leaves: Падающие листья (осень)
+    - poplar_fluff: Тополиный пух (лето)
+    - sakura: Лепестки сакуры (весна)
+- primarySource: open_meteo
+  $name: Основной источник погоды
+  $options:
+    - open_meteo: Open-Meteo API (без ключа)
+    - custom_api: Кастомный HTTP/HTTPS JSON URL
+    - local_file: Локальный JSON/текстовый файл
+- fallbackSource: manual
+  $name: Резервный источник при ошибке
+  $options:
+    - manual: Ручной режим
+    - open_meteo: Open-Meteo API
+    - local_file: Локальный файл
+- latitude: "44.7866"
+  $name: Широта (Open-Meteo)
+- longitude: "20.4489"
+  $name: Долгота (Open-Meteo)
+- customApiUrl: ""
+  $name: URL кастомного JSON API
+- localWeatherPath: ""
+  $name: Путь к локальному файлу погоды
+- updateIntervalMin: 30
+  $name: Интервал обновления погоды (мин)
+- particleDensity: 45
+  $name: Плотность частиц (на 1000 px)
+- particleScale: "1.0"
+  $name: Масштаб частиц (0.5 - 2.5)
+- windStrength: 15
+  $name: Сила ветра (-100..100)
+- atmosphereOpacity: 35
+  $name: Интенсивность тумана / света (0..100%)
+- enableBottomAccumulation: true
+  $name: Накопление внизу экрана
+- maxBottomHeightPx: 36
+  $name: Макс. высота слоя внизу (px)
+- enableWindowAccumulation: true
+  $name: Накопление на верхнем крае окон
+- maxWindowHeightPx: 14
+  $name: Макс. высота слоя на окне (px)
+- windowShakeSensitivity: 55
+  $name: Чувствительность срыва при движении окна (1..100)
+- windowInertiaFactor: "0.65"
+  $name: Инерция при срыве с окна (0.0..2.0)
+- cursorInteraction: true
+  $name: Взаимодействие с курсором
+- cursorRadiusPx: 90
+  $name: Радиус влияния курсора (px)
+- meltSpeed: "1.5"
+  $name: Скорость таяния/испарения (px/сек)
+- targetFps: 60
+  $name: Целевой FPS (30 или 60)
+- pauseOnFullscreen: true
+  $name: Пауза при полноэкранных окнах
+- excludedProcesses: "obs64.exe, ApplicationFrameHost.exe"
+  $name: Исключения процессов (через запятую)
+==/WindhawkModSettings== */
 
 #include <windows.h>
 #include <wininet.h>
 #include <d2d1.h>
 #include <dwmapi.h>
-#include <psapi.h>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -127,9 +123,6 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
-
-#pragma comment(lib, "dwmapi.lib")
-#pragma comment(lib, "psapi.lib")
 
 namespace {
 
@@ -208,7 +201,7 @@ struct TrackedWindow {
     float vx = 0.0f;
     float vy = 0.0f;
     bool hasPrev = false;
-    std::vector<float> topHeights; // высота слоя по X (относительно rect.left)
+    std::vector<float> topHeights;
 };
 
 std::mutex g_mutex;
@@ -220,10 +213,14 @@ HWND g_overlayHwnd = nullptr;
 std::thread g_renderThread;
 std::thread g_weatherThread;
 std::atomic<bool> g_running{false};
-std::atomic<bool> g_settingsDirty{true};
 
 ID2D1Factory* g_d2dFactory = nullptr;
-ID2D1HwndRenderTarget* g_renderTarget = nullptr;
+ID2D1DCRenderTarget* g_dcRenderTarget = nullptr;
+HDC g_memDC = nullptr;
+HBITMAP g_dibBitmap = nullptr;
+HGDIOBJ g_oldBitmap = nullptr;
+int g_dibWidth = 0;
+int g_dibHeight = 0;
 
 int g_canvasLeft = 0;
 int g_canvasTop = 0;
@@ -231,7 +228,7 @@ int g_canvasWidth = 0;
 int g_canvasHeight = 0;
 
 std::vector<Particle> g_particles;
-std::vector<float> g_bottomHeights; // накопление внизу экрана по X
+std::vector<float> g_bottomHeights;
 std::unordered_map<HWND, TrackedWindow> g_windows;
 
 std::wstring ToLower(std::wstring s) {
@@ -334,7 +331,6 @@ void LoadSettingsFromWh() {
     if (g_settings.weatherMode == L"manual") {
         g_effectiveWeather = g_settings.manualWeather;
     }
-    g_settingsDirty.store(true);
 }
 
 std::string HttpGetUtf8(const std::wstring& url) {
@@ -349,7 +345,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.1", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.2", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -585,7 +581,7 @@ bool IsFullscreenAppActive() {
 }
 
 std::wstring GetProcessBaseNameLower(DWORD pid) {
-    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
     if (!hProc) return {};
     wchar_t path[MAX_PATH] = {};
     DWORD len = _countof(path);
@@ -645,38 +641,42 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE;
 }
 
-HWND FindDesktopParent(const std::wstring& mode) {
+HWND FindShellDefViewHost() {
     HWND progman = FindWindowW(L"Progman", nullptr);
-    if (mode == L"progman_direct") {
-        return progman;
+    if (progman) {
+        HWND defView = FindWindowExW(progman, nullptr, L"SHELLDLL_DefView", nullptr);
+        if (defView) return progman;
     }
+    HWND workerW = nullptr;
+    while ((workerW = FindWindowExW(nullptr, workerW, L"WorkerW", nullptr)) != nullptr) {
+        HWND defView = FindWindowExW(workerW, nullptr, L"SHELLDLL_DefView", nullptr);
+        if (defView) return workerW;
+    }
+    return progman;
+}
+
+void PositionOverlayBelowIcons(HWND overlay, const std::wstring& mode) {
+    if (!overlay) return;
+    HWND insertAfter = HWND_BOTTOM;
     if (mode == L"auto") {
-        if (progman) {
-            SendMessageTimeoutW(progman, 0x052C, 0xD, 0x1, SMTO_NORMAL, 1000, nullptr);
-        }
-        HWND workerW = nullptr;
-        while ((workerW = FindWindowExW(nullptr, workerW, L"WorkerW", nullptr)) != nullptr) {
-            HWND shellView = FindWindowExW(workerW, nullptr, L"SHELLDLL_DefView", nullptr);
-            if (shellView) {
-                return workerW;
-            }
-        }
-        return progman;
+        HWND host = FindShellDefViewHost();
+        if (host) insertAfter = host;
+    } else if (mode == L"progman_direct") {
+        HWND progman = FindWindowW(L"Progman", nullptr);
+        if (progman) insertAfter = progman;
     }
-    return nullptr;
+    SetWindowPos(
+        overlay,
+        insertAfter,
+        g_canvasLeft,
+        g_canvasTop,
+        g_canvasWidth,
+        g_canvasHeight,
+        SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
 LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-        case WM_ERASEBKGND:
-            return 1;
-        case WM_DESTROY:
-            if (g_renderTarget) {
-                g_renderTarget->Release();
-                g_renderTarget = nullptr;
-            }
-            return 0;
-    }
+    if (msg == WM_ERASEBKGND) return 1;
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
@@ -727,48 +727,100 @@ void SpawnParticle(Particle& p, std::mt19937& rng, PrecipType type, double scale
     }
 }
 
-void EnsureD2DRenderTarget() {
+void CleanupSurfaceResources() {
+    if (g_dcRenderTarget) {
+        g_dcRenderTarget->Release();
+        g_dcRenderTarget = nullptr;
+    }
+    if (g_memDC) {
+        if (g_oldBitmap) {
+            SelectObject(g_memDC, g_oldBitmap);
+            g_oldBitmap = nullptr;
+        }
+        DeleteDC(g_memDC);
+        g_memDC = nullptr;
+    }
+    if (g_dibBitmap) {
+        DeleteObject(g_dibBitmap);
+        g_dibBitmap = nullptr;
+    }
+    g_dibWidth = 0;
+    g_dibHeight = 0;
+}
+
+bool EnsureLayeredSurface(int width, int height) {
     if (!g_d2dFactory) {
         D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_d2dFactory);
     }
-    if (g_d2dFactory && !g_renderTarget && g_overlayHwnd && IsWindow(g_overlayHwnd)) {
-        RECT rc = {};
-        GetClientRect(g_overlayHwnd, &rc);
-        D2D1_SIZE_U size = D2D1::SizeU(
-            std::max<UINT>(1, rc.right - rc.left),
-            std::max<UINT>(1, rc.bottom - rc.top));
-        D2D1_RENDER_TARGET_PROPERTIES rtProps = D2D1::RenderTargetProperties(
-            D2D1_RENDER_TARGET_TYPE_DEFAULT,
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
-        g_d2dFactory->CreateHwndRenderTarget(
-            rtProps,
-            D2D1::HwndRenderTargetProperties(g_overlayHwnd, size, D2D1_PRESENT_OPTIONS_IMMEDIATELY),
-            &g_renderTarget);
+    if (!g_d2dFactory) return false;
+
+    if (g_dcRenderTarget && g_memDC && g_dibBitmap && g_dibWidth == width && g_dibHeight == height) {
+        return true;
     }
+
+    CleanupSurfaceResources();
+
+    HDC screenDC = GetDC(nullptr);
+    g_memDC = CreateCompatibleDC(screenDC);
+    ReleaseDC(nullptr, screenDC);
+    if (!g_memDC) return false;
+
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -height; // top-down DIB
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void* bits = nullptr;
+    g_dibBitmap = CreateDIBSection(g_memDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!g_dibBitmap) {
+        CleanupSurfaceResources();
+        return false;
+    }
+
+    g_oldBitmap = SelectObject(g_memDC, g_dibBitmap);
+    g_dibWidth = width;
+    g_dibHeight = height;
+
+    D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+
+    HRESULT hr = g_d2dFactory->CreateDCRenderTarget(&props, &g_dcRenderTarget);
+    if (FAILED(hr) || !g_dcRenderTarget) {
+        CleanupSurfaceResources();
+        return false;
+    }
+    return true;
 }
 
-void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, int bottomLimitY, POINT cursorPt) {
-    EnsureD2DRenderTarget();
-    if (!g_renderTarget) return;
+void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, int bottomLimitY) {
+    if (!g_overlayHwnd || !IsWindow(g_overlayHwnd)) return;
+    if (!EnsureLayeredSurface(g_canvasWidth, g_canvasHeight)) return;
 
-    g_renderTarget->BeginDraw();
-    g_renderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+    RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
+    g_dcRenderTarget->BindDC(g_memDC, &bindRect);
+
+    g_dcRenderTarget->BeginDraw();
+    g_dcRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
 
     float atmoAlpha = static_cast<float>(cfg.atmosphereOpacity) / 100.0f * 0.35f;
     if (cond == WeatherCondition::Fog && atmoAlpha > 0.005f) {
         ID2D1SolidColorBrush* fogBrush = nullptr;
-        g_renderTarget->CreateSolidColorBrush(D2D1::ColorF(0.85f, 0.88f, 0.92f, atmoAlpha), &fogBrush);
+        g_dcRenderTarget->CreateSolidColorBrush(D2D1::ColorF(0.85f, 0.88f, 0.92f, atmoAlpha), &fogBrush);
         if (fogBrush) {
-            g_renderTarget->FillRectangle(
+            g_dcRenderTarget->FillRectangle(
                 D2D1::RectF(0.0f, 0.0f, static_cast<float>(g_canvasWidth), static_cast<float>(g_canvasHeight)),
                 fogBrush);
             fogBrush->Release();
         }
     } else if (cond == WeatherCondition::Clear && atmoAlpha > 0.005f) {
         ID2D1SolidColorBrush* sunBrush = nullptr;
-        g_renderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.92f, 0.65f, atmoAlpha * 0.45f), &sunBrush);
+        g_dcRenderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 0.92f, 0.65f, atmoAlpha * 0.45f), &sunBrush);
         if (sunBrush) {
-            g_renderTarget->FillEllipse(
+            g_dcRenderTarget->FillEllipse(
                 D2D1::Ellipse(D2D1::Point2F(g_canvasWidth * 0.85f, g_canvasHeight * 0.12f), 260.0f, 260.0f),
                 sunBrush);
             sunBrush->Release();
@@ -795,28 +847,27 @@ void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, i
     }
 
     ID2D1SolidColorBrush* brush = nullptr;
-    g_renderTarget->CreateSolidColorBrush(particleColor, &brush);
+    g_dcRenderTarget->CreateSolidColorBrush(particleColor, &brush);
     if (brush) {
         for (const auto& p : g_particles) {
             brush->SetOpacity(p.alpha);
             if (pType == PrecipType::Rain) {
-                g_renderTarget->DrawLine(
+                g_dcRenderTarget->DrawLine(
                     D2D1::Point2F(p.x, p.y),
                     D2D1::Point2F(p.x + p.vx * 0.02f, p.y + p.size),
                     brush,
                     1.5f);
             } else if (pType == PrecipType::Leaves || pType == PrecipType::Sakura) {
-                g_renderTarget->FillEllipse(
+                g_dcRenderTarget->FillEllipse(
                     D2D1::Ellipse(D2D1::Point2F(p.x, p.y), p.size * 0.65f, p.size * 0.35f),
                     brush);
             } else {
-                g_renderTarget->FillEllipse(
+                g_dcRenderTarget->FillEllipse(
                     D2D1::Ellipse(D2D1::Point2F(p.x, p.y), p.size * 0.5f, p.size * 0.5f),
                     brush);
             }
         }
 
-        // Накопление на окнах
         if (cfg.enableWindowAccumulation) {
             brush->SetOpacity(0.85f);
             for (const auto& kv : g_windows) {
@@ -827,7 +878,7 @@ void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, i
                 for (int x = 0; x < w; x += 2) {
                     float h = tw.topHeights[x];
                     if (h > 0.5f) {
-                        g_renderTarget->FillRectangle(
+                        g_dcRenderTarget->FillRectangle(
                             D2D1::RectF(
                                 static_cast<float>(leftRel + x),
                                 static_cast<float>(topRel) - h,
@@ -839,14 +890,13 @@ void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, i
             }
         }
 
-        // Накопление внизу экрана
         if (cfg.enableBottomAccumulation && !g_bottomHeights.empty()) {
             brush->SetOpacity(0.9f);
             int baseRel = bottomLimitY - g_canvasTop;
             for (int x = 0; x < g_canvasWidth; x += 2) {
                 float h = g_bottomHeights[x];
                 if (h > 0.5f) {
-                    g_renderTarget->FillRectangle(
+                    g_dcRenderTarget->FillRectangle(
                         D2D1::RectF(
                             static_cast<float>(x),
                             static_cast<float>(baseRel) - h,
@@ -860,12 +910,21 @@ void RenderFrame(const Settings& cfg, WeatherCondition cond, PrecipType pType, i
         brush->Release();
     }
 
-    HRESULT hr = g_renderTarget->EndDraw();
+    HRESULT hr = g_dcRenderTarget->EndDraw();
     if (hr == D2DERR_RECREATE_TARGET) {
-        g_renderTarget->Release();
-        g_renderTarget = nullptr;
+        CleanupSurfaceResources();
+        return;
     }
-    (void)cursorPt;
+
+    POINT ptDst = {g_canvasLeft, g_canvasTop};
+    SIZE sizeWnd = {g_canvasWidth, g_canvasHeight};
+    POINT ptSrc = {0, 0};
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 255;
+    blend.AlphaFormat = AC_SRC_ALPHA;
+
+    UpdateLayeredWindow(g_overlayHwnd, nullptr, &ptDst, &sizeWnd, g_memDC, &ptSrc, 0, &blend, ULW_ALPHA);
 }
 
 void RenderWorkerLoop() {
@@ -878,7 +937,7 @@ void RenderWorkerLoop() {
 
     std::mt19937 rng(static_cast<unsigned>(GetTickCount64()));
     auto lastTime = std::chrono::steady_clock::now();
-    std::wstring currentParentMode;
+    int zOrderTick = 0;
 
     while (g_running.load()) {
         Settings cfg;
@@ -899,31 +958,22 @@ void RenderWorkerLoop() {
 
         UpdateCanvasGeometry(cfg);
 
-        if (!g_overlayHwnd || currentParentMode != cfg.layerAttachMode) {
-            if (g_overlayHwnd) {
-                DestroyWindow(g_overlayHwnd);
-                g_overlayHwnd = nullptr;
-                if (g_renderTarget) {
-                    g_renderTarget->Release();
-                    g_renderTarget = nullptr;
-                }
-            }
-            HWND parent = FindDesktopParent(cfg.layerAttachMode);
-            DWORD style = parent ? (WS_CHILD | WS_VISIBLE) : (WS_POPUP | WS_VISIBLE);
-            DWORD exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+        if (!g_overlayHwnd) {
+            DWORD exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
             g_overlayHwnd = CreateWindowExW(
-                exStyle, wc.lpszClassName, L"DesktopWeatherOverlay", style,
-                parent ? 0 : g_canvasLeft, parent ? 0 : g_canvasTop,
-                g_canvasWidth, g_canvasHeight,
-                parent, nullptr, wc.hInstance, nullptr);
-            if (g_overlayHwnd) {
-                SetLayeredWindowAttributes(g_overlayHwnd, 0, 255, LWA_ALPHA);
-                if (!parent) {
-                    SetWindowPos(g_overlayHwnd, HWND_BOTTOM, g_canvasLeft, g_canvasTop,
-                                 g_canvasWidth, g_canvasHeight, SWP_NOACTIVATE);
-                }
-            }
-            currentParentMode = cfg.layerAttachMode;
+                exStyle, wc.lpszClassName, L"DesktopWeatherOverlay", WS_POPUP,
+                g_canvasLeft, g_canvasTop, g_canvasWidth, g_canvasHeight,
+                nullptr, nullptr, wc.hInstance, nullptr);
+            PositionOverlayBelowIcons(g_overlayHwnd, cfg.layerAttachMode);
+        } else if (++zOrderTick >= 30) {
+            zOrderTick = 0;
+            PositionOverlayBelowIcons(g_overlayHwnd, cfg.layerAttachMode);
+        }
+
+        MSG msg;
+        while (PeekMessageW(&msg, g_overlayHwnd, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
         }
 
         auto now = std::chrono::steady_clock::now();
@@ -931,13 +981,12 @@ void RenderWorkerLoop() {
         lastTime = now;
         dt = std::clamp(dt, 0.001f, 0.05f);
 
-        // Обновление списка окон и физики срыва при движении/тряске
         std::vector<std::wstring> excluded = SplitExcluded(cfg.excludedProcesses);
         std::vector<HWND> activeHwnds;
         EnumCtx ctx{&excluded, &activeHwnds};
         EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&ctx));
 
-        float shakeThreshold = 1400.0f - (cfg.windowShakeSensitivity * 11.5f); // чем выше чувствительность, тем ниже порог
+        float shakeThreshold = 1400.0f - (cfg.windowShakeSensitivity * 11.5f);
         shakeThreshold = std::max(120.0f, shakeThreshold);
 
         for (HWND h : activeHwnds) {
@@ -980,7 +1029,6 @@ void RenderWorkerLoop() {
             tw.hasPrev = true;
         }
 
-        // Удаляем закрытые окна
         for (auto it = g_windows.begin(); it != g_windows.end();) {
             if (std::find(activeHwnds.begin(), activeHwnds.end(), it->first) == activeHwnds.end()) {
                 it = g_windows.erase(it);
@@ -989,7 +1037,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Целевое число частиц
         PrecipType pType = cfg.precipType;
         if (cond == WeatherCondition::Rain) pType = PrecipType::Rain;
         else if (cond == WeatherCondition::Snow && pType == PrecipType::Rain) pType = PrecipType::Snow;
@@ -1025,7 +1072,6 @@ void RenderWorkerLoop() {
         int bottomLimitY = ComputeBottomLimitY(cfg);
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-        // Таяние / испарение накопленного слоя
         float meltDelta = static_cast<float>(cfg.meltSpeed) * dt;
         if (cond == WeatherCondition::Clear) meltDelta *= 2.0f;
         if (meltDelta > 0.0f && !g_bottomHeights.empty()) {
@@ -1034,7 +1080,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Движение частиц и столкновения
         for (size_t i = 0; i < g_particles.size(); ++i) {
             Particle& p = g_particles[i];
             p.swayPhase += dt * 3.0f;
@@ -1095,7 +1140,7 @@ void RenderWorkerLoop() {
             }
         }
 
-        RenderFrame(cfg, cond, pType, bottomLimitY, cursorPt);
+        RenderFrame(cfg, cond, pType, bottomLimitY);
 
         int frameMs = 1000 / cfg.targetFps;
         std::this_thread::sleep_for(std::chrono::milliseconds(frameMs));
@@ -1105,6 +1150,7 @@ void RenderWorkerLoop() {
         DestroyWindow(g_overlayHwnd);
         g_overlayHwnd = nullptr;
     }
+    CleanupSurfaceResources();
     if (g_d2dFactory) {
         g_d2dFactory->Release();
         g_d2dFactory = nullptr;
