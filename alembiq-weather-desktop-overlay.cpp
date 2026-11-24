@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         1.1.0
+// @version         1.2.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -47,11 +47,6 @@
 - cursorAction: clear
   $name: "[System] Cursor action"
   $description: "none = ignore cursor; clear = erase fallen items on touch (snowballs/snowman scattered by click); push = gently scatter/push; secret = special cursor interaction."
-  $options:
-    - none: None (ignore cursor)
-    - clear: Clear (erase fallen items; click scatters snowballs/snowman)
-    - push: Push (gently scatter/push)
-    - secret: Secret
   $options:
     - none: None (ignore cursor)
     - clear: Clear (erase fallen items; click scatters snowballs/snowman)
@@ -562,7 +557,7 @@ struct FallenItem {
 struct BottomSnowball {
     ObjectKind kind = ObjectKind::Snow;
     bool isSeasonalLayer = false;
-    int slot = 0; // 0 = база, 1 = тело (руки + пуговица), 2 = голова (глаза + морковка)
+    int slot = 0;
     float x = 0.0f;
     float vx = 0.0f;
     float radius = 8.0f;
@@ -2674,7 +2669,6 @@ void RenderWorkerLoop() {
         float leafSumX = 0.0f;
         float petalSumX = 0.0f;
 
-        // Легкая и чистая работа с опавшими листьями и лепестками без "комов" и неровных куч
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -2735,7 +2729,6 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Секретные пасхалки в режиме Secret при достижении критичной массы листьев или лепестков
         if (cfg.enableBottomAccumulation && cfg.cursorAction == CursorActionMode::Secret) {
             if (activeSeasonal && seasonalKind == ObjectKind::AutumnLeaves && leafCount >= secretThreshold) {
                 g_secretEgg.active = true;
@@ -2758,7 +2751,6 @@ void RenderWorkerLoop() {
             if (g_secretEgg.progress <= 0.01f) g_secretEgg.active = false;
         }
 
-        // Обновление до 3 нижних шаров и магнитная сборка снеговика
         std::vector<float> bx, by;
         ComputeSnowballCenters(g_bottomSnowballs, bottomRelY, bx, by);
 
