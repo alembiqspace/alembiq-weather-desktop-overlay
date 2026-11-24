@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.6.1
+// @version         0.6.2-fix
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -595,18 +595,18 @@ struct FallenItem {
 struct BottomSnowball {
     ObjectKind kind = ObjectKind::Snow;
     bool isSeasonalLayer = false;
-    int slot = 0; // 0 = база, 1 = тело, 2 = голова
+    int slot = 0; // 0 = база, 1 = тело (руки + пуговица), 2 = голова (глаза + морковка)
     float x = 0.0f;
     float vx = 0.0f;
     float radius = 8.0f;
-    float lift = 0.0f;     // подъем при запрыгивании на шар ниже
+    float lift = 0.0f;
     float liftVel = 0.0f;
     float squash = 0.0f;
     float squashVel = 0.0f;
     float alpha = 0.96f;
     float ageSec = 0.0f;
-    bool stacked = false;  // запрыгнул на предыдущий шар
-    bool full = false;     // достиг максимума и больше не растет
+    bool stacked = false;
+    bool full = false;
 };
 
 struct PileMember {
@@ -627,6 +627,7 @@ struct BottomFoliagePile {
     float halfWidth = 42.0f;
     float height = 10.0f;
     float ageSec = 0.0f;
+    float dogPhase = 0.0f;
     std::vector<PileMember> members;
 };
 
@@ -702,14 +703,27 @@ int g_canvasHeight = 0;
 
 std::vector<FallingItem> g_falling;
 std::vector<FallenItem> g_fallen;
-std::vector<BottomSnowball> g_bottomSnowballs; // максимум 3 шара внизу экрана
-BottomFoliagePile g_bottomPile;                 // максимум 1 куча листьев/лепестков внизу экрана
+std::vector<BottomSnowball> g_bottomSnowballs;
+BottomFoliagePile g_bottomPile;
 bool g_hasBottomPile = false;
 std::vector<SnowChunk> g_chunks;
 SnowCap g_bottomSnowCap;
 std::unordered_map<HWND, SnowCap> g_windowSnowCaps;
 LightningFlash g_lightning;
 std::unordered_map<HWND, WindowMotion> g_windows;
+
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && g_running.load() &&
+        (wParam == WM_LBUTTONDOWN || wParam == WM_RBUTTONDOWN)) {
+        const auto* ms = reinterpret_cast<const MSLLHOOKSTRUCT*>(lParam);
+        if (ms) {
+            g_clickScreenX.store(ms->pt.x);
+            g_clickScreenY.store(ms->pt.y);
+            g_snowmanClickRequested.store(true);
+        }
+    }
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
 
 uint32_t Hash32(uint32_t x) {
     x ^= x >> 16;
@@ -777,4 +791,675 @@ int ParseIntRangeOrDefault(int rawVal, int minVal, int maxVal, int defVal) {
     return rawVal;
 }
 
-double ParseDouble
+double ParseDoubleRangeOrDefault(const std::wstring& raw, double minVal, double maxVal, double defVal) {
+    double v = 0.0;
+    if (!TryParseDoubleStrict(raw, v)) return defVal;
+    if (v < minVal || v > maxVal) return defVal;
+    return v;
+}
+
+int SanitizePercent(int rawVal) {
+    return ParseIntRangeOrDefault(rawVal, 0, 100, 25);
+}
+
+void ParseCoordsString(const std::wstring& raw, double& outLat, double& outLon) {
+    double defLat = 44.7866;
+    double defLon = 20.4489;
+    std::wstring s = Trim(raw);
+    size_t sep = s.find(L'/');
+    if (sep == std::wstring::npos) sep = s.find(L',');
+    if (sep == std::wstring::npos) {
+        outLat = defLat;
+        outLon = defLon;
+        return;
+    }
+    double lat = 0.0, lon = 0.0;
+    if (!TryParseDoubleStrict(s.substr(0, sep), lat) || !TryParseDoubleStrict(s.substr(sep + 1), lon) ||
+        lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+        outLat = defLat;
+        outLon = defLon;
+        return;
+    }
+    outLat = lat;
+    outLon = lon;
+}
+
+int DaysInMonthSafe(int month) {
+    switch (month) {
+        case 2: return 29;
+        case 4: case 6: case 9: case 11: return 30;
+        default: return 31;
+    }
+}
+
+bool TryParseDayMonthStrict(const std::wstring& raw, DayMonth& outDm) {
+    std::wstring s = Trim(raw);
+    size_t sep = s.find(L'.');
+    if (sep == std::wstring::npos) sep = s.find(L'/');
+    if (sep == std::wstring::npos) return false;
+    std::wstring dPart = Trim(s.substr(0, sep));
+    std::wstring mPart = Trim(s.substr(sep + 1));
+    if (dPart.empty() || mPart.empty()) return false;
+    for (wchar_t c : dPart) if (!iswdigit(c)) return false;
+    for (wchar_t c : mPart) if (!iswdigit(c)) return false;
+    try {
+        int d = std::stoi(dPart);
+        int m = std::stoi(mPart);
+        if (m < 1 || m > 12) return false;
+        if (d < 1 || d > DaysInMonthSafe(m)) return false;
+        outDm = DayMonth{d, m};
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool TryParseDateRangePair(const std::wstring& raw, DayMonth& outStart, DayMonth& outEnd) {
+    size_t dash = raw.find(L'-');
+    if (dash == std::wstring::npos) return false;
+    return TryParseDayMonthStrict(raw.substr(0, dash), outStart) &&
+           TryParseDayMonthStrict(raw.substr(dash + 1), outEnd);
+}
+
+void ParseSeasonsRangeString(const std::wstring& raw, Settings& cfg) {
+    DayMonth defSpS{1, 3}, defSpE{31, 5};
+    DayMonth defSuS{1, 6}, defSuE{31, 8};
+    DayMonth defAuS{1, 9}, defAuE{30, 11};
+    DayMonth defWiS{1, 12}, defWiE{29, 2};
+
+    std::vector<std::wstring> parts;
+    std::wstringstream ss(raw);
+    std::wstring item;
+    while (std::getline(ss, item, L'/')) {
+        parts.push_back(Trim(item));
+    }
+
+    DayMonth spS = defSpS, spE = defSpE, suS = defSuS, suE = defSuE, auS = defAuS, auE = defAuE, wiS = defWiS, wiE = defWiE;
+    if (parts.size() != 4 ||
+        !TryParseDateRangePair(parts[0], spS, spE) ||
+        !TryParseDateRangePair(parts[1], suS, suE) ||
+        !TryParseDateRangePair(parts[2], auS, auE) ||
+        !TryParseDateRangePair(parts[3], wiS, wiE)) {
+        cfg.springStart = defSpS; cfg.springEnd = defSpE;
+        cfg.summerStart = defSuS; cfg.summerEnd = defSuE;
+        cfg.autumnStart = defAuS; cfg.autumnEnd = defAuE;
+        cfg.winterStart = defWiS; cfg.winterEnd = defWiE;
+        return;
+    }
+
+    cfg.springStart = spS; cfg.springEnd = spE;
+    cfg.summerStart = suS; cfg.summerEnd = suE;
+    cfg.autumnStart = auS; cfg.autumnEnd = auE;
+    cfg.winterStart = wiS; cfg.winterEnd = wiE;
+}
+
+void ParseArcGeometryString(const std::wstring& raw, ArcGeometry defGeom, ArcGeometry& outGeom) {
+    outGeom = defGeom;
+    std::wstring s = Trim(raw);
+    size_t dash = s.find(L'-');
+    size_t slash = s.find(L'/');
+    if (dash == std::wstring::npos || slash == std::wstring::npos || slash <= dash) return;
+
+    std::wstring rPart = Trim(s.substr(0, dash));
+    std::wstring xPart = Trim(s.substr(dash + 1, slash - dash - 1));
+    std::wstring yPart = Trim(s.substr(slash + 1));
+
+    auto isIntStr = [](const std::wstring& p) -> bool {
+        if (p.empty()) return false;
+        for (wchar_t c : p) if (!iswdigit(c)) return false;
+        return true;
+    };
+    if (!isIntStr(rPart) || !isIntStr(xPart) || !isIntStr(yPart)) return;
+
+    try {
+        int r = std::stoi(rPart);
+        int x = std::stoi(xPart);
+        int y = std::stoi(yPart);
+        if (r < 0 || r > 100 || x < 0 || x > 100 || y < 0 || y > 100) return;
+        outGeom.radius = r;
+        outGeom.centerX = x;
+        outGeom.centerY = y;
+    } catch (...) {
+    }
+}
+
+int ToMonthDayKey(int month, int day) {
+    return month * 100 + day;
+}
+
+bool IsDateInRange(int curKey, DayMonth start, DayMonth end) {
+    int sKey = ToMonthDayKey(start.month, start.day);
+    int eKey = ToMonthDayKey(end.month, end.day);
+    if (sKey <= eKey) return curKey >= sKey && curKey <= eKey;
+    return curKey >= sKey || curKey <= eKey;
+}
+
+SeasonalMode DetectSeasonByDates(const Settings& cfg) {
+    std::time_t now = std::time(nullptr);
+    std::tm tmLocal = {};
+    localtime_s(&tmLocal, &now);
+    int curKey = ToMonthDayKey(tmLocal.tm_mon + 1, tmLocal.tm_mday);
+
+    if (IsDateInRange(curKey, cfg.springStart, cfg.springEnd)) return SeasonalMode::Petals;
+    if (IsDateInRange(curKey, cfg.summerStart, cfg.summerEnd)) return SeasonalMode::Off;
+    if (IsDateInRange(curKey, cfg.autumnStart, cfg.autumnEnd)) return SeasonalMode::AutumnLeaves;
+    if (IsDateInRange(curKey, cfg.winterStart, cfg.winterEnd)) return SeasonalMode::ExtraSnow;
+    return SeasonalMode::Off;
+}
+
+PrecipMode ParsePrecipMode(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"off") return PrecipMode::Off;
+    if (v == L"rain") return PrecipMode::Rain;
+    if (v == L"snow") return PrecipMode::Snow;
+    if (v == L"hail") return PrecipMode::Hail;
+    return PrecipMode::Auto;
+}
+
+SeasonalMode ParseSeasonalMode(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"off") return SeasonalMode::Off;
+    if (v == L"autumn_leaves" || v == L"leaves") return SeasonalMode::AutumnLeaves;
+    if (v == L"extra_snow" || v == L"snow") return SeasonalMode::ExtraSnow;
+    if (v == L"petals" || v == L"sakura") return SeasonalMode::Petals;
+    return SeasonalMode::Auto;
+}
+
+TriStateMode ParseTriState(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"on") return TriStateMode::On;
+    if (v == L"off") return TriStateMode::Off;
+    return TriStateMode::Auto;
+}
+
+FallDirMode ParseFallDir(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"down") return FallDirMode::Down;
+    if (v == L"down_left" || v == L"left") return FallDirMode::DownLeft;
+    if (v == L"down_right" || v == L"right") return FallDirMode::DownRight;
+    return FallDirMode::Auto;
+}
+
+CursorActionMode ParseCursorAction(const std::wstring& s) {
+    std::wstring v = ToLower(Trim(s));
+    if (v == L"move") return CursorActionMode::Move;
+    if (v == L"none") return CursorActionMode::None;
+    return CursorActionMode::Clear;
+}
+
+int WindDegToSign(double deg) {
+    double norm = std::fmod(deg, 360.0);
+    if (norm < 0.0) norm += 360.0;
+    if (norm >= 45.0 && norm < 225.0) return 1;
+    return -1;
+}
+
+bool TryParseHexColorStrict(const std::wstring& hexRaw, float defaultAlpha, D2D1_COLOR_F& outColor) {
+    std::wstring s = Trim(hexRaw);
+    if (s.empty()) return false;
+    if (s[0] == L'#') s.erase(0, 1);
+    if (s.size() != 6) return false;
+    for (wchar_t c : s) {
+        if (!iswxdigit(c)) return false;
+    }
+    try {
+        unsigned long rgb = std::stoul(s, nullptr, 16);
+        float r = ((rgb >> 16) & 0xFF) / 255.0f;
+        float g = ((rgb >> 8) & 0xFF) / 255.0f;
+        float b = (rgb & 0xFF) / 255.0f;
+        outColor = D2D1::ColorF(r, g, b, defaultAlpha);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+std::vector<std::wstring> SplitExcluded(const std::wstring& raw) {
+    std::vector<std::wstring> result;
+    std::wstringstream ss(raw);
+    std::wstring item;
+    while (std::getline(ss, item, L',')) {
+        std::wstring t = ToLower(Trim(item));
+        if (!t.empty()) result.push_back(t);
+    }
+    return result;
+}
+
+void LoadSettingsFromWh() {
+    Settings next;
+    auto readStr = [](LPCWSTR name, const std::wstring& defVal) -> std::wstring {
+        PCWSTR raw = Wh_GetStringSetting(name);
+        if (!raw) return defVal;
+        std::wstring out(raw);
+        Wh_FreeStringSetting(raw);
+        return out;
+    };
+
+    next.layerAttachMode = readStr(L"layerAttachMode", L"auto");
+    next.bottomBoundaryMode = readStr(L"bottomBoundaryMode", L"above_taskbar");
+    next.bottomOffsetPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"bottomOffsetPx"), -500, 1000, 0);
+    next.multiMonitorMode = readStr(L"multiMonitorMode", L"primary");
+
+    int fpsRaw = Wh_GetIntSetting(L"targetFps");
+    next.targetFps = (fpsRaw == 30 || fpsRaw == 60) ? fpsRaw : 60;
+    next.pauseOnFullscreen = Wh_GetIntSetting(L"pauseOnFullscreen") != 0;
+    next.excludedProcesses = readStr(L"excludedProcesses", L"obs64.exe, ApplicationFrameHost.exe");
+
+    next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"clear"));
+    next.cursorRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500, 95);
+
+    next.enableBottomAccumulation = Wh_GetIntSetting(L"enableBottomAccumulation") != 0;
+    next.enableWindowAccumulation = Wh_GetIntSetting(L"enableWindowAccumulation") != 0;
+
+    next.primarySource = readStr(L"primarySource", L"open_meteo");
+    next.fallbackSource = readStr(L"fallbackSource", L"off");
+    ParseCoordsString(readStr(L"coords", L"44.7866/20.4489"), next.latitude, next.longitude);
+    next.customApiUrl = Trim(readStr(L"customApiUrl", L""));
+    next.localWeatherPath = Trim(readStr(L"localWeatherPath", L""));
+    next.updateIntervalMin = ParseIntRangeOrDefault(Wh_GetIntSetting(L"updateIntervalMin"), 1, 1440, 30);
+
+    ParseSeasonsRangeString(
+        readStr(L"seasonsRange", L"01.03-31.05/01.06-31.08/01.09-30.11/01.12-29.02"),
+        next);
+
+    next.precipitationMode = ParsePrecipMode(readStr(L"precipitationMode", L"auto"));
+    next.precipFallDirection = ParseFallDir(readStr(L"precipFallDirection", L"auto"));
+    next.precipFallSpeedMps = ParseDoubleRangeOrDefault(readStr(L"precipFallSpeedMps", L"6.5"), 0.1, 50.0, 6.5);
+
+    next.precipIntensity = SanitizePercent(Wh_GetIntSetting(L"precipIntensity"));
+    next.precipMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"precipMaxAccumulated"), 0, 2000, 220);
+
+    auto readLifetime = [&](LPCWSTR key, double defMin) -> double {
+        double v = 0.0;
+        if (!TryParseDoubleStrict(readStr(key, L""), v)) return defMin;
+        if (v < 0.0) {
+            return (std::abs(v + 1.0) < 1e-6) ? -1.0 : defMin;
+        }
+        if (v > 1440.0) return defMin;
+        return std::max(0.05, v);
+    };
+    next.precipLifetimeMin = readLifetime(L"precipLifetimeMin", 10.0);
+
+    next.seasonalObjectMode = ParseSeasonalMode(readStr(L"seasonalObjectMode", L"auto"));
+    next.seasonalFallDirection = ParseFallDir(readStr(L"seasonalFallDirection", L"auto"));
+    next.seasonalFallSpeedMps = ParseDoubleRangeOrDefault(readStr(L"seasonalFallSpeedMps", L"2.2"), 0.1, 30.0, 2.2);
+
+    next.seasonalIntensity = SanitizePercent(Wh_GetIntSetting(L"seasonalIntensity"));
+    next.seasonalMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"seasonalMaxAccumulated"), 0, 2000, 220);
+    next.seasonalLifetimeMin = readLifetime(L"seasonalLifetimeMin", 15.0);
+
+    next.effectsIntensity = SanitizePercent(Wh_GetIntSetting(L"effectsIntensity"));
+    next.effectClear = ParseTriState(readStr(L"effectClear", L"auto"));
+    next.effectPartlyCloudy = ParseTriState(readStr(L"effectPartlyCloudy", L"auto"));
+    next.effectOvercast = ParseTriState(readStr(L"effectOvercast", L"auto"));
+    next.effectDust = ParseTriState(readStr(L"effectDust", L"auto"));
+    next.effectFog = ParseTriState(readStr(L"effectFog", L"auto"));
+    next.effectSmog = ParseTriState(readStr(L"effectSmog", L"auto"));
+    next.effectThunderstorm = ParseTriState(readStr(L"effectThunderstorm", L"auto"));
+    next.effectAurora = ParseTriState(readStr(L"effectAurora", L"auto"));
+    next.effectMirage = ParseTriState(readStr(L"effectMirage", L"auto"));
+    next.effectRainbow = ParseTriState(readStr(L"effectRainbow", L"auto"));
+    next.effectHalo = ParseTriState(readStr(L"effectHalo", L"auto"));
+
+    ParseArcGeometryString(readStr(L"rainbowGeometry", L"55-50/15"), ArcGeometry{55, 50, 15}, next.rainbowGeom);
+    ParseArcGeometryString(readStr(L"haloGeometry", L"24-50/72"), ArcGeometry{24, 50, 72}, next.haloGeom);
+
+    next.snowballMaxRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowballMaxRadiusPx"), 8, 120, 34);
+    next.leafPileMaxHeightPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"leafPileMaxHeightPx"), 8, 250, 54);
+    next.windowShakeSensitivity = ParseIntRangeOrDefault(Wh_GetIntSetting(L"windowShakeSensitivity"), 1, 100, 55);
+    next.windowInertiaFactor = ParseDoubleRangeOrDefault(readStr(L"windowInertiaFactor", L"0.75"), 0.0, 3.0, 0.75);
+    next.particleScale = ParseDoubleRangeOrDefault(readStr(L"particleScale", L"1.0"), 0.3, 4.0, 1.0);
+
+    TryParseHexColorStrict(readStr(L"colorRain", L""), 0.78f, next.colorRain);
+    next.hasCustomSnowColor = TryParseHexColorStrict(readStr(L"colorSnow", L""), 0.96f, next.colorSnow);
+    TryParseHexColorStrict(readStr(L"colorHail", L""), 0.95f, next.colorHail);
+    TryParseHexColorStrict(readStr(L"colorAutumnLeaves", L""), 0.94f, next.colorAutumnLeaves);
+    TryParseHexColorStrict(readStr(L"colorExtraSnow", L""), 0.92f, next.colorExtraSnow);
+    TryParseHexColorStrict(readStr(L"colorPetals", L""), 0.92f, next.colorPetals);
+
+    next.hasCustomClearColor = TryParseHexColorStrict(readStr(L"colorClear", L""), 0.25f, next.colorClear);
+    next.hasCustomPartlyCloudyColor = TryParseHexColorStrict(readStr(L"colorPartlyCloudy", L""), 0.22f, next.colorPartlyCloudy);
+    next.hasCustomOvercastColor = TryParseHexColorStrict(readStr(L"colorOvercast", L""), 0.35f, next.colorOvercast);
+    next.hasCustomDustColor = TryParseHexColorStrict(readStr(L"colorDust", L""), 0.28f, next.colorDust);
+    next.hasCustomFogColor = TryParseHexColorStrict(readStr(L"colorFog", L""), 0.35f, next.colorFog);
+    next.hasCustomSmogColor = TryParseHexColorStrict(readStr(L"colorSmog", L""), 0.36f, next.colorSmog);
+    next.hasCustomThunderstormColor = TryParseHexColorStrict(readStr(L"colorThunderstorm", L""), 0.95f, next.colorThunderstorm);
+    next.hasCustomAuroraColor = TryParseHexColorStrict(readStr(L"colorAurora", L""), 0.32f, next.colorAurora);
+    next.hasCustomMirageColor = TryParseHexColorStrict(readStr(L"colorMirage", L""), 0.25f, next.colorMirage);
+    next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
+    next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_settings = next;
+}
+
+std::string HttpGetUtf8(const std::wstring& url) {
+    URL_COMPONENTSW parts = {};
+    parts.dwStructSize = sizeof(parts);
+    wchar_t host[256] = {};
+    wchar_t path[2048] = {};
+    parts.lpszHostName = host;
+    parts.dwHostNameLength = _countof(host);
+    parts.lpszUrlPath = path;
+    parts.dwUrlPathLength = _countof(path);
+
+    if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
+
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/1.3", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    if (!hSession) return {};
+
+    DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
+    if (parts.nScheme == INTERNET_SCHEME_HTTPS) {
+        flags |= INTERNET_FLAG_SECURE;
+    }
+
+    HINTERNET hConnect = InternetConnectW(
+        hSession, host, parts.nPort, nullptr, nullptr, INTERNET_SERVICE_HTTP, 0, 0);
+    if (!hConnect) {
+        InternetCloseHandle(hSession);
+        return {};
+    }
+
+    HINTERNET hRequest = HttpOpenRequestW(
+        hConnect, L"GET", path, nullptr, nullptr, nullptr, flags, 0);
+    std::string response;
+    if (hRequest && HttpSendRequestW(hRequest, nullptr, 0, nullptr, 0)) {
+        char buf[4096];
+        DWORD bytesRead = 0;
+        while (InternetReadFile(hRequest, buf, sizeof(buf), &bytesRead) && bytesRead > 0) {
+            response.append(buf, bytesRead);
+        }
+    }
+
+    if (hRequest) InternetCloseHandle(hRequest);
+    InternetCloseHandle(hConnect);
+    InternetCloseHandle(hSession);
+    return response;
+}
+
+void ApplyForecastMetrics(int code, double windKmh, double tempC, int cloudCover,
+                          double visibilityM, bool isDay,
+                          bool& hasPrecip, ObjectKind& precipKind, GeneralEffectsState& fx) {
+    hasPrecip = false;
+    fx = GeneralEffectsState{};
+
+    bool isRainCode = (code >= 51 && code <= 67) || (code >= 80 && code <= 82);
+    bool isSnowCode = (code == 71 || code == 73 || code == 75 || code == 77 || code == 85 || code == 86);
+    bool isStormCode = (code == 95 || code == 96 || code == 99);
+    bool isFogCode = (code == 45 || code == 48);
+
+    if (code == 0) fx.clear = true;
+    else if (code == 1 || code == 2) fx.partlyCloudy = true;
+    else if (code == 3) fx.overcast = true;
+    else if (isFogCode) fx.fog = true;
+
+    if (isSnowCode) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Snow;
+    } else if (code == 96 || code == 99) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Hail;
+        fx.thunderstorm = true;
+    } else if (code == 95) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Rain;
+        fx.thunderstorm = true;
+    } else if (isRainCode) {
+        hasPrecip = true;
+        precipKind = ObjectKind::Rain;
+    }
+
+    if (!hasPrecip && !isStormCode && windKmh >= 28.0 && (visibilityM <= 0.0 || visibilityM < 8000.0)) {
+        fx.dust = true;
+    }
+    if (!hasPrecip && windKmh < 12.0 && visibilityM > 0.0 && visibilityM < 6000.0) {
+        fx.smog = true;
+    }
+    if (isDay && !hasPrecip && !isStormCode && tempC >= 28.0 && cloudCover <= 30) {
+        fx.mirage = true;
+    }
+    if (isDay && !isStormCode && (isRainCode || isFogCode || (cloudCover >= 15 && cloudCover <= 65 && !hasPrecip))) {
+        fx.rainbow = true;
+    }
+    if (!hasPrecip && !isStormCode && cloudCover >= 20 && cloudCover <= 75) {
+        fx.halo = true;
+    }
+    if (!isDay && !hasPrecip && !isStormCode && cloudCover <= 35) {
+        fx.aurora = true;
+    }
+}
+
+bool ParseWeatherJson(const std::string& json, bool& hasPrecip, ObjectKind& precipKind,
+                      GeneralEffectsState& fx, double& windSpeed, int& windSign) {
+    auto extractNumber = [&](const std::string& key, double& val) -> bool {
+        size_t pos = json.find("\"" + key + "\"");
+        if (pos == std::string::npos) return false;
+        pos = json.find(':', pos);
+        if (pos == std::string::npos) return false;
+        pos++;
+        while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) pos++;
+        try {
+            val = std::stod(json.substr(pos));
+            return std::isfinite(val);
+        } catch (...) {
+            return false;
+        }
+    };
+
+    double spd = 0.0;
+    if (extractNumber("wind_speed_10m", spd) || extractNumber("windspeed", spd) || extractNumber("wind_speed", spd)) {
+        windSpeed = std::max(0.0, spd);
+    }
+
+    double deg = -1.0;
+    if (extractNumber("wind_direction_10m", deg) || extractNumber("winddirection", deg) || extractNumber("wind_deg", deg)) {
+        windSign = (windSpeed > 0.2) ? WindDegToSign(deg) : 0;
+    } else {
+        windSign = 0;
+    }
+
+    double tempC = 15.0;
+    extractNumber("temperature_2m", tempC);
+    double cloud = 20.0;
+    extractNumber("cloud_cover", cloud);
+    double vis = 12000.0;
+    extractNumber("visibility", vis);
+    double isDayNum = 1.0;
+    extractNumber("is_day", isDayNum);
+
+    double wmo = -999.0;
+    if (extractNumber("weather_code", wmo) || extractNumber("weathercode", wmo)) {
+        ApplyForecastMetrics(static_cast<int>(wmo), windSpeed, tempC, static_cast<int>(cloud),
+                             vis, isDayNum > 0.5, hasPrecip, precipKind, fx);
+        return true;
+    }
+    return false;
+}
+
+bool FetchWeatherSource(const std::wstring& src, const Settings& cfg, bool& hasPrecip,
+                        ObjectKind& precipKind, GeneralEffectsState& fx,
+                        double& windSpeed, int& windSign) {
+    if (src == L"off") return false;
+    if (src == L"open_meteo") {
+        std::wstringstream url;
+        url << L"https://api.open-meteo.com/v1/forecast?latitude=" << cfg.latitude
+            << L"&longitude=" << cfg.longitude
+            << L"¤t=weather_code,wind_speed_10m,wind_direction_10m,temperature_2m,cloud_cover,visibility,is_day";
+        std::string body = HttpGetUtf8(url.str());
+        if (body.empty()) return false;
+        return ParseWeatherJson(body, hasPrecip, precipKind, fx, windSpeed, windSign);
+    }
+    if (src == L"custom_api") {
+        if (cfg.customApiUrl.empty()) return false;
+        std::string body = HttpGetUtf8(cfg.customApiUrl);
+        if (body.empty()) return false;
+        return ParseWeatherJson(body, hasPrecip, precipKind, fx, windSpeed, windSign);
+    }
+    if (src == L"local_file") {
+        if (cfg.localWeatherPath.empty()) return false;
+        HANDLE hFile = CreateFileW(cfg.localWeatherPath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                     nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (hFile == INVALID_HANDLE_VALUE) return false;
+        DWORD size = GetFileSize(hFile, nullptr);
+        std::string content;
+        if (size > 0 && size < 1024 * 1024) {
+            content.resize(size);
+            DWORD read = 0;
+            ReadFile(hFile, content.data(), size, &read, nullptr);
+            content.resize(read);
+        }
+        CloseHandle(hFile);
+        if (content.empty()) return false;
+        return ParseWeatherJson(content, hasPrecip, precipKind, fx, windSpeed, windSign);
+    }
+    return false;
+}
+
+void WeatherWorkerLoop() {
+    while (g_running.load()) {
+        Settings cfg;
+        int intervalSec = 1800;
+        {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            cfg = g_settings;
+            intervalSec = cfg.updateIntervalMin * 60;
+        }
+
+        bool hasP = false;
+        ObjectKind pKind = ObjectKind::Rain;
+        GeneralEffectsState fx;
+        double wSpd = 0.0;
+        int wSign = 0;
+
+        bool ok = FetchWeatherSource(cfg.primarySource, cfg, hasP, pKind, fx, wSpd, wSign);
+        if (!ok && cfg.fallbackSource != L"off" && cfg.fallbackSource != cfg.primarySource) {
+            ok = FetchWeatherSource(cfg.fallbackSource, cfg, hasP, pKind, fx, wSpd, wSign);
+        }
+
+        if (ok) {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            g_hasForecastPrecip = hasP;
+            g_forecastPrecip = pKind;
+            g_forecastEffects = fx;
+            g_forecastWindSpeedKmh = wSpd;
+            g_forecastWindDirSign = wSign;
+        }
+
+        for (int i = 0; i < intervalSec && g_running.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+}
+
+void UpdateCanvasGeometry(const Settings& cfg) {
+    if (cfg.multiMonitorMode == L"all") {
+        g_canvasLeft = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        g_canvasTop = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        g_canvasWidth = std::max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN));
+        g_canvasHeight = std::max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN));
+    } else {
+        g_canvasLeft = 0;
+        g_canvasTop = 0;
+        g_canvasWidth = std::max(1, GetSystemMetrics(SM_CXSCREEN));
+        g_canvasHeight = std::max(1, GetSystemMetrics(SM_CYSCREEN));
+    }
+}
+
+int ComputeBottomLimitY(const Settings& cfg) {
+    int baseBottom = g_canvasTop + g_canvasHeight;
+    if (cfg.bottomBoundaryMode == L"above_taskbar") {
+        HWND hTray = FindWindowW(L"Shell_TrayWnd", nullptr);
+        RECT trayRect = {};
+        if (hTray && GetWindowRect(hTray, &trayRect)) {
+            baseBottom = std::min(baseBottom, static_cast<int>(trayRect.top));
+        }
+    } else if (cfg.bottomBoundaryMode == L"custom_offset") {
+        baseBottom -= cfg.bottomOffsetPx;
+    }
+    return std::clamp(baseBottom, g_canvasTop + 10, g_canvasTop + g_canvasHeight);
+}
+
+bool IsFullscreenAppActive() {
+    HWND fg = GetForegroundWindow();
+    if (!fg || fg == g_desktopOverlayHwnd || fg == g_topWindowsOverlayHwnd) return false;
+    wchar_t cls[128] = {};
+    GetClassNameW(fg, cls, _countof(cls));
+    std::wstring clsStr = cls;
+    if (clsStr == L"Progman" || clsStr == L"WorkerW" || clsStr == L"Shell_TrayWnd") return false;
+
+    RECT fgRect = {};
+    if (!GetWindowRect(fg, &fgRect)) return false;
+    HMONITOR mon = MonitorFromWindow(fg, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO mi = {sizeof(mi)};
+    if (!GetMonitorInfoW(mon, &mi)) return false;
+
+    return (fgRect.left <= mi.rcMonitor.left &&
+            fgRect.top <= mi.rcMonitor.top &&
+            fgRect.right >= mi.rcMonitor.right &&
+            fgRect.bottom >= mi.rcMonitor.bottom);
+}
+
+std::wstring GetProcessBaseNameLower(DWORD pid) {
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return {};
+    wchar_t path[MAX_PATH] = {};
+    DWORD len = _countof(path);
+    std::wstring name;
+    if (QueryFullProcessImageNameW(hProc, 0, path, &len)) {
+        std::wstring full(path, len);
+        size_t slash = full.find_last_of(L"\\/");
+        name = ToLower((slash == std::wstring::npos) ? full : full.substr(slash + 1));
+    }
+    CloseHandle(hProc);
+    return name;
+}
+
+struct EnumCtx {
+    const std::vector<std::wstring>* excluded;
+    std::vector<VisibleWindow>* outWindows;
+};
+
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    auto* ctx = reinterpret_cast<EnumCtx*>(lParam);
+    if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) return TRUE;
+    if (hwnd == g_desktopOverlayHwnd || hwnd == g_topWindowsOverlayHwnd) return TRUE;
+
+    LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
+    if (exStyle & WS_EX_TOOLWINDOW) return TRUE;
+    if (GetWindow(hwnd, GW_OWNER) != nullptr) return TRUE;
+
+    BOOL cloaked = FALSE;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    if (cloaked) return TRUE;
+
+    wchar_t cls[128] = {};
+    GetClassNameW(hwnd, cls, _countof(cls));
+    std::wstring clsStr = cls;
+    if (clsStr == L"Progman" || clsStr == L"WorkerW" || clsStr == L"Shell_TrayWnd" ||
+        clsStr == L"Windows.UI.Core.CoreWindow") {
+        return TRUE;
+    }
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != 0 && ctx->excluded && !ctx->excluded->empty()) {
+        std::wstring procName = GetProcessBaseNameLower(pid);
+        if (!procName.empty()) {
+            for (const auto& ex : *ctx->excluded) {
+                if (procName == ex) return TRUE;
+            }
+        }
+    }
+
+    RECT r = {};
+    if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof(r)))) {
+        if (!GetWindowRect(hwnd, &r)) return TRUE;
+    }
+    if ((r.right - r.left) >= 80 && (r.bottom - r.top) >= 40) {
+        RECT rel = {r.left - g_canvasLeft, r.top - g_canvasTop, r.right - g_canvasLeft, r.bottom - g_canvasTop};
+        ctx->outWindows->push_back(VisibleWindow{hwnd, rel});
+    }
+    return TRUE;
+}
+
+bool IsPointOccludedAbove(const std::vector<VisibleWindow>& windows, size_t targetIdx, float x,
