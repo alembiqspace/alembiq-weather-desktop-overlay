@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.3.2
+// @version         0.4.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -14,21 +14,21 @@
 # --- 1. SYSTEM & LAYER ---
 - layerAttachMode: auto
   $name: "[System] Layer attach mode"
-  $description: "Controls Z-order placement of the overlay. Allowed: auto, progman_direct, desktop_bottom. Default: auto."
+  $description: "Controls Z-order placement of the main desktop overlay. Allowed: auto, progman_direct, desktop_bottom. Default: auto."
   $options:
     - auto: Auto (below SHELLDLL_DefView icons)
     - progman_direct: Progman reference
     - desktop_bottom: Bottom of Z-order (HWND_BOTTOM)
 - bottomBoundaryMode: above_taskbar
   $name: "[System] Bottom boundary mode"
-  $description: "Sets the bottom reference line for fallen objects/puddles. Allowed: above_taskbar, screen_bottom, custom_offset. Default: above_taskbar."
+  $description: "Sets bottom reference line for fallen items/puddles. Allowed: above_taskbar, screen_bottom, custom_offset. Default: above_taskbar."
   $options:
     - above_taskbar: Above taskbar (Shell_TrayWnd)
     - screen_bottom: Bottom edge of screen
     - custom_offset: Custom offset from bottom (px)
 - bottomOffsetPx: 0
   $name: "[System] Custom bottom offset (px)"
-  $description: "Vertical offset in px above bottom edge when bottomBoundaryMode is custom_offset. Range: -500 to 1000. Invalid input resets to 0."
+  $description: "Vertical offset in px above bottom edge when bottomBoundaryMode is custom_offset. Range: -500 to 1000. Invalid resets to 0."
 - multiMonitorMode: primary
   $name: "[System] Monitors"
   $description: "Render on primary monitor or full virtual screen. Allowed: primary, all. Default: primary."
@@ -36,7 +36,15 @@
     - primary: Primary monitor
     - all: All monitors (virtual screen)
 
-# --- 2. WEATHER SOURCES & SEASONS ---
+# --- 2. ACCUMULATION TOGGLES ---
+- enableBottomAccumulation: true
+  $name: "[Accum] Bottom accumulation"
+  $description: "Enables/disables accumulation at the bottom boundary. When off (along with window accumulation), nothing accumulates even with side wind."
+- enableWindowAccumulation: true
+  $name: "[Accum] Window top accumulation"
+  $description: "Enables/disables accumulation on top edges of visible windows rendered on a click-through layer above windows."
+
+# --- 3. WEATHER SOURCES & SEASONS ---
 - primarySource: open_meteo
   $name: "[Weather] Primary source"
   $description: "Primary forecast provider for auto modes. Allowed: open_meteo, custom_api, local_file. Default: open_meteo."
@@ -53,45 +61,45 @@
     - local_file: Local file
 - latitude: "44.7866"
   $name: "[Weather] Latitude"
-  $description: "Latitude in decimal degrees (-90.0 to 90.0). Invalid input resets to 44.7866."
+  $description: "Latitude in decimal degrees (-90.0 to 90.0). Invalid resets to 44.7866."
 - longitude: "20.4489"
   $name: "[Weather] Longitude"
-  $description: "Longitude in decimal degrees (-180.0 to 180.0). Invalid input resets to 20.4489."
+  $description: "Longitude in decimal degrees (-180.0 to 180.0). Invalid resets to 20.4489."
 - customApiUrl: ""
   $name: "[Weather] Custom JSON API URL"
-  $description: "HTTP/HTTPS JSON endpoint (weather_code, condition, wind_speed_10m, wind_direction_10m). Default: empty."
+  $description: "HTTP/HTTPS JSON endpoint (weather_code, condition, wind_speed_10m, wind_direction_10m, temperature_2m, cloud_cover, visibility, is_day)."
 - localWeatherPath: ""
   $name: "[Weather] Local weather file path"
   $description: "Path to local JSON or text weather file. Default: empty."
 - updateIntervalMin: 30
   $name: "[Weather] Update interval (min)"
-  $description: "Forecast refresh period in minutes (1 to 1440). Out-of-range/invalid resets to 30."
+  $description: "Forecast refresh period in minutes (1 to 1440). Invalid/out-of-range resets to 30."
 - springStart: "01.03"
   $name: "[Seasons] Spring start (DD.MM)"
-  $description: "Spring start date in DD.MM format (01.01 to 31.12). Invalid format resets to 01.03."
+  $description: "Spring start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.03."
 - springEnd: "31.05"
   $name: "[Seasons] Spring end (DD.MM)"
-  $description: "Spring end date in DD.MM format (01.01 to 31.12). Invalid format resets to 31.05."
+  $description: "Spring end date in DD.MM format (01.01 to 31.12). Invalid resets to 31.05."
 - summerStart: "01.06"
   $name: "[Seasons] Summer start (DD.MM)"
-  $description: "Summer start date in DD.MM format (01.01 to 31.12). Invalid format resets to 01.06."
+  $description: "Summer start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.06."
 - summerEnd: "31.08"
   $name: "[Seasons] Summer end (DD.MM)"
-  $description: "Summer end date in DD.MM format (01.01 to 31.12). Invalid format resets to 31.08."
+  $description: "Summer end date in DD.MM format (01.01 to 31.12). Invalid resets to 31.08."
 - autumnStart: "01.09"
   $name: "[Seasons] Autumn start (DD.MM)"
-  $description: "Autumn start date in DD.MM format (01.01 to 31.12). Invalid format resets to 01.09."
+  $description: "Autumn start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.09."
 - autumnEnd: "30.11"
   $name: "[Seasons] Autumn end (DD.MM)"
-  $description: "Autumn end date in DD.MM format (01.01 to 31.12). Invalid format resets to 30.11."
+  $description: "Autumn end date in DD.MM format (01.01 to 31.12). Invalid resets to 30.11."
 - winterStart: "01.12"
   $name: "[Seasons] Winter start (DD.MM)"
-  $description: "Winter start date in DD.MM format (supports year wrap). Invalid format resets to 01.12."
+  $description: "Winter start date in DD.MM format (supports year wrap). Invalid resets to 01.12."
 - winterEnd: "29.02"
   $name: "[Seasons] Winter end (DD.MM)"
-  $description: "Winter end date in DD.MM format (supports year wrap). Invalid format resets to 29.02."
+  $description: "Winter end date in DD.MM format (supports year wrap). Invalid resets to 29.02."
 
-# --- 3. PRECIPITATION (RAIN / SNOW / HAIL) ---
+# --- 4. PRECIPITATION (RAIN / SNOW / HAIL) ---
 - precipitationMode: auto
   $name: "[Precip] Mode"
   $description: "Precipitation layer mode. Allowed: off, auto, rain, snow, hail. Default: auto."
@@ -103,7 +111,7 @@
     - hail: Hail
 - precipFallDirection: auto
   $name: "[Precip] Fall direction"
-  $description: "Falling direction for precipitation. Allowed: auto, down, down_left, down_right. Default: auto."
+  $description: "Fall direction for precipitation. Allowed: auto, down, down_left, down_right. Default: auto."
   $options:
     - auto: Auto (forecast)
     - down: Down
@@ -149,7 +157,7 @@
   $name: "[Precip] Hail color (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default ice-blue. Invalid HEX resets to default."
 
-# --- 4. SEASONAL OBJECTS (LEAVES / EXTRA SNOW / PETALS) ---
+# --- 5. SEASONAL OBJECTS (LEAVES / EXTRA SNOW / PETALS) ---
 - seasonalObjectMode: auto
   $name: "[SeasonObj] Mode"
   $description: "Seasonal falling objects mode. Allowed: off, auto, autumn_leaves, extra_snow, petals. Default: auto."
@@ -181,7 +189,7 @@
   $description: "Petals intensity (0..100). Outside 0..100 or invalid resets to 25."
 - autumnLeavesMaxAccumulated: 220
   $name: "[SeasonObj] Autumn leaves max accumulated"
-  $description: "Max accumulated leaves on screen (0..2000; 0 disables). Invalid/out-of-range resets to 220."
+  $description: "Max accumulated maple leaves on screen (0..2000; 0 disables). Invalid/out-of-range resets to 220."
 - extraSnowMaxAccumulated: 240
   $name: "[SeasonObj] Extra snow max accumulated"
   $description: "Max accumulated extra snow items (0..2000; 0 disables). Invalid/out-of-range resets to 240."
@@ -199,7 +207,7 @@
   $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 12.0."
 - colorAutumnLeaves: ""
   $name: "[SeasonObj] Autumn leaves color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default amber/orange. Invalid HEX resets to default."
+  $description: "Custom HEX (#RRGGBB) or empty for default maple orange-amber. Invalid HEX resets to default."
 - colorExtraSnow: ""
   $name: "[SeasonObj] Extra snow color (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default snow-white. Invalid HEX resets to default."
@@ -207,7 +215,7 @@
   $name: "[SeasonObj] Petals color (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default soft pink. Invalid HEX resets to default."
 
-# --- 5. GENERAL EFFECTS ---
+# --- 6. GENERAL EFFECTS ---
 - effectsIntensity: 25
   $name: "[Effects] General intensity (%)"
   $description: "Strength/opacity for general effects (0..100). Outside 0..100 or invalid resets to 25."
@@ -234,7 +242,7 @@
     - off: Off
 - effectDust: auto
   $name: "[Effects] Dust"
-  $description: "Airborne dust haze. Allowed: auto, on, off. Can stack with other effects."
+  $description: "Airborne dust haze (auto triggers on strong dry wind or low visibility). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
@@ -248,7 +256,7 @@
     - off: Off
 - effectSmog: auto
   $name: "[Effects] Smog"
-  $description: "Smog layer. Allowed: auto, on, off. Can stack with other effects."
+  $description: "Smog layer (auto triggers on calm wind with reduced visibility/haze). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
@@ -262,21 +270,21 @@
     - off: Off
 - effectAurora: auto
   $name: "[Effects] Aurora"
-  $description: "Smooth animated aurora curtains in upper screen area. Allowed: auto, on, off."
+  $description: "Smooth animated aurora curtains in upper screen area (auto triggers at night with clear/low clouds). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectMirage: auto
   $name: "[Effects] Mirage"
-  $description: "Soft horizon shimmer wave band. Allowed: auto, on, off."
+  $description: "Soft horizon shimmer wave band (auto triggers on hot clear daytime weather). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
     - off: Off
 - effectRainbow: auto
   $name: "[Effects] Rainbow"
-  $description: "Multi-band rainbow arc with soft edge fade. Allowed: auto, on, off."
+  $description: "Multi-band rainbow arc (auto triggers on daytime partly-cloudy/post-rain/misty conditions). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
@@ -292,7 +300,7 @@
   $description: "Arc radius in % (0..100; 0 = off, 100 = min(screenWidth, screenHeight)). Outside 0..100 or invalid resets to 55."
 - effectHalo: auto
   $name: "[Effects] Halo"
-  $description: "Soft luminous atmospheric halo ring. Allowed: auto, on, off."
+  $description: "Soft luminous atmospheric halo ring (auto triggers on thin/mid cloud cover without heavy precip). Allowed: auto, on, off."
   $options:
     - auto: Auto (forecast)
     - on: On
@@ -340,28 +348,34 @@
   $name: "[Effects] Halo color (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default pale halo."
 
-# --- 6. CURSOR & WINDOW PHYSICS ---
-- cursorAction: move
+# --- 7. CURSOR, PILES, SNOWBALLS & WINDOW PHYSICS ---
+- cursorAction: clear
   $name: "[Cursor] Action on fallen objects"
-  $description: "Affects fallen objects only (never falling particles). move = push along cursor movement; clear = erase touched fallen items; none = ignore cursor."
+  $description: "Affects fallen objects only. clear = erase on touch (default); move = gather snow into snowballs & leaves into mounds; none = ignore cursor."
   $options:
-    - move: Move (push in movement direction)
     - clear: Clear (erase on touch)
+    - move: Move (snowballs & leaf piles)
     - none: None (ignore cursor)
 - cursorRadiusPx: 95
   $name: "[Cursor] Radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
+- snowballMaxRadiusPx: 34
+  $name: "[Snowballs] Max radius (px)"
+  $description: "Maximum radius of rolled snowballs in pixels (8 to 120). Invalid/out-of-range resets to 34."
+- leafPileMaxHeightPx: 54
+  $name: "[Leaf Piles] Max height (px)"
+  $description: "Maximum height of gathered autumn leaf mounds in pixels (8 to 250). Invalid/out-of-range resets to 54."
 - windowShakeSensitivity: 55
   $name: "[Windows] Shed sensitivity (1..100)"
-  $description: "Sensitivity for detaching fallen items when moving windows (1..100). Invalid/out-of-range resets to 55."
+  $description: "Sensitivity for detaching fallen items/snowballs when moving windows (1..100). Invalid/out-of-range resets to 55."
 - windowInertiaFactor: "0.75"
   $name: "[Windows] Shed inertia factor"
-  $description: "Horizontal inertia transferred to detached fallen items (0.0 to 3.0). Invalid resets to 0.75."
+  $description: "Horizontal inertia transferred to detached fallen items/snowballs (0.0 to 3.0). Invalid resets to 0.75."
 - particleScale: "1.0"
   $name: "[Objects] Size scale"
   $description: "Size multiplier for falling and fallen objects (0.3 to 4.0). Invalid resets to 1.0."
 
-# --- 7. PERFORMANCE ---
+# --- 8. PERFORMANCE ---
 - targetFps: 60
   $name: "[Perf] Target FPS (30 or 60)"
   $description: "Target frame rate (30 or 60). Any other value resets to 60."
@@ -432,8 +446,8 @@ enum class FallDirMode {
 };
 
 enum class CursorActionMode {
-    Move,
     Clear,
+    Move,
     None
 };
 
@@ -461,6 +475,9 @@ struct Settings {
     std::wstring bottomBoundaryMode = L"above_taskbar";
     int bottomOffsetPx = 0;
     std::wstring multiMonitorMode = L"primary";
+
+    bool enableBottomAccumulation = true;
+    bool enableWindowAccumulation = true;
 
     std::wstring primarySource = L"open_meteo";
     std::wstring fallbackSource = L"off";
@@ -562,8 +579,10 @@ struct Settings {
     bool hasCustomHaloColor = false;
     D2D1_COLOR_F colorHalo = D2D1::ColorF(0.98f, 0.95f, 0.82f, 0.32f);
 
-    CursorActionMode cursorAction = CursorActionMode::Move;
+    CursorActionMode cursorAction = CursorActionMode::Clear;
     int cursorRadiusPx = 95;
+    int snowballMaxRadiusPx = 34;
+    int leafPileMaxHeightPx = 54;
     int windowShakeSensitivity = 55;
     double windowInertiaFactor = 0.75;
     double particleScale = 1.0;
@@ -601,6 +620,21 @@ struct FallenItem {
     bool fallingOff = false;
 };
 
+struct Snowball {
+    ObjectKind kind = ObjectKind::Snow;
+    bool isSeasonalLayer = false;
+    bool onWindow = false;
+    HWND hostWindow = nullptr;
+    float relX = 0.0f;
+    float relY = 0.0f;
+    float vx = 0.0f;
+    float vy = 0.0f;
+    float radius = 8.0f;
+    float alpha = 0.95f;
+    float ageSec = 0.0f;
+    bool fallingOff = false;
+};
+
 struct LightningFlash {
     float timer = 0.0f;
     float xStart = 0.0f;
@@ -614,6 +648,15 @@ struct WindowMotion {
     bool hasPrev = false;
 };
 
+struct LayeredSurface {
+    ID2D1DCRenderTarget* rt = nullptr;
+    HDC memDC = nullptr;
+    HBITMAP dib = nullptr;
+    HGDIOBJ oldBmp = nullptr;
+    int width = 0;
+    int height = 0;
+};
+
 std::mutex g_mutex;
 Settings g_settings;
 
@@ -623,18 +666,15 @@ int g_forecastWindDirSign = 0;
 double g_forecastWindSpeedKmh = 0.0;
 GeneralEffectsState g_forecastEffects;
 
-HWND g_overlayHwnd = nullptr;
+HWND g_desktopOverlayHwnd = nullptr;
+HWND g_topWindowsOverlayHwnd = nullptr;
 std::thread g_renderThread;
 std::thread g_weatherThread;
 std::atomic<bool> g_running{false};
 
 ID2D1Factory* g_d2dFactory = nullptr;
-ID2D1DCRenderTarget* g_dcRenderTarget = nullptr;
-HDC g_memDC = nullptr;
-HBITMAP g_dibBitmap = nullptr;
-HGDIOBJ g_oldBitmap = nullptr;
-int g_dibWidth = 0;
-int g_dibHeight = 0;
+LayeredSurface g_desktopSurface;
+LayeredSurface g_topWindowsSurface;
 
 int g_canvasLeft = 0;
 int g_canvasTop = 0;
@@ -643,6 +683,7 @@ int g_canvasHeight = 0;
 
 std::vector<FallingItem> g_falling;
 std::vector<FallenItem> g_fallen;
+std::vector<Snowball> g_snowballs;
 LightningFlash g_lightning;
 std::unordered_map<HWND, WindowMotion> g_windows;
 
@@ -781,9 +822,9 @@ FallDirMode ParseFallDir(const std::wstring& s) {
 
 CursorActionMode ParseCursorAction(const std::wstring& s) {
     std::wstring v = ToLower(Trim(s));
-    if (v == L"clear") return CursorActionMode::Clear;
+    if (v == L"move") return CursorActionMode::Move;
     if (v == L"none") return CursorActionMode::None;
-    return CursorActionMode::Move;
+    return CursorActionMode::Clear;
 }
 
 int WindDegToSign(double deg) {
@@ -838,6 +879,9 @@ void LoadSettingsFromWh() {
     next.bottomBoundaryMode = readStr(L"bottomBoundaryMode", L"above_taskbar");
     next.bottomOffsetPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"bottomOffsetPx"), -500, 1000, 0);
     next.multiMonitorMode = readStr(L"multiMonitorMode", L"primary");
+
+    next.enableBottomAccumulation = Wh_GetIntSetting(L"enableBottomAccumulation") != 0;
+    next.enableWindowAccumulation = Wh_GetIntSetting(L"enableWindowAccumulation") != 0;
 
     next.primarySource = readStr(L"primarySource", L"open_meteo");
     next.fallbackSource = readStr(L"fallbackSource", L"off");
@@ -937,8 +981,10 @@ void LoadSettingsFromWh() {
     next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
     next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
 
-    next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"move"));
+    next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"clear"));
     next.cursorRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500, 95);
+    next.snowballMaxRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowballMaxRadiusPx"), 8, 120, 34);
+    next.leafPileMaxHeightPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"leafPileMaxHeightPx"), 8, 250, 54);
     next.windowShakeSensitivity = ParseIntRangeOrDefault(Wh_GetIntSetting(L"windowShakeSensitivity"), 1, 100, 55);
     next.windowInertiaFactor = ParseDoubleRangeOrDefault(readStr(L"windowInertiaFactor", L"0.75"), 0.0, 3.0, 0.75);
     next.particleScale = ParseDoubleRangeOrDefault(readStr(L"particleScale", L"1.0"), 0.3, 4.0, 1.0);
@@ -964,7 +1010,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.5", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.6", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -996,19 +1042,23 @@ std::string HttpGetUtf8(const std::wstring& url) {
     return response;
 }
 
-void ApplyForecastCode(int code, bool& hasPrecip, ObjectKind& precipKind, GeneralEffectsState& fx) {
+void ApplyForecastMetrics(int code, double windKmh, double tempC, int cloudCover,
+                          double visibilityM, bool isDay,
+                          bool& hasPrecip, ObjectKind& precipKind, GeneralEffectsState& fx) {
     hasPrecip = false;
     fx = GeneralEffectsState{};
 
-    if (code == 0) {
-        fx.clear = true;
-    } else if (code == 1 || code == 2) {
-        fx.partlyCloudy = true;
-    } else if (code == 3) {
-        fx.overcast = true;
-    } else if (code == 45 || code == 48) {
-        fx.fog = true;
-    } else if (code == 71 || code == 73 || code == 75 || code == 77 || code == 85 || code == 86) {
+    bool isRainCode = (code >= 51 && code <= 67) || (code >= 80 && code <= 82);
+    bool isSnowCode = (code == 71 || code == 73 || code == 75 || code == 77 || code == 85 || code == 86);
+    bool isStormCode = (code == 95 || code == 96 || code == 99);
+    bool isFogCode = (code == 45 || code == 48);
+
+    if (code == 0) fx.clear = true;
+    else if (code == 1 || code == 2) fx.partlyCloudy = true;
+    else if (code == 3) fx.overcast = true;
+    else if (isFogCode) fx.fog = true;
+
+    if (isSnowCode) {
         hasPrecip = true;
         precipKind = ObjectKind::Snow;
     } else if (code == 96 || code == 99) {
@@ -1019,9 +1069,29 @@ void ApplyForecastCode(int code, bool& hasPrecip, ObjectKind& precipKind, Genera
         hasPrecip = true;
         precipKind = ObjectKind::Rain;
         fx.thunderstorm = true;
-    } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+    } else if (isRainCode) {
         hasPrecip = true;
         precipKind = ObjectKind::Rain;
+    }
+
+    // Косвенные эффекты по метеопараметрам
+    if (!hasPrecip && !isStormCode && windKmh >= 28.0 && (visibilityM <= 0.0 || visibilityM < 8000.0)) {
+        fx.dust = true;
+    }
+    if (!hasPrecip && windKmh < 12.0 && visibilityM > 0.0 && visibilityM < 6000.0) {
+        fx.smog = true;
+    }
+    if (isDay && !hasPrecip && !isStormCode && tempC >= 28.0 && cloudCover <= 30) {
+        fx.mirage = true;
+    }
+    if (isDay && !isStormCode && (isRainCode || isFogCode || (cloudCover >= 15 && cloudCover <= 65 && !hasPrecip))) {
+        fx.rainbow = true;
+    }
+    if (!hasPrecip && !isStormCode && cloudCover >= 20 && cloudCover <= 75) {
+        fx.halo = true;
+    }
+    if (!isDay && !hasPrecip && !isStormCode && cloudCover <= 35) {
+        fx.aurora = true;
     }
 }
 
@@ -1042,19 +1112,6 @@ bool ParseWeatherJson(const std::string& json, bool& hasPrecip, ObjectKind& prec
         }
     };
 
-    auto extractString = [&](const std::string& key, std::string& val) -> bool {
-        size_t pos = json.find("\"" + key + "\"");
-        if (pos == std::string::npos) return false;
-        pos = json.find(':', pos);
-        if (pos == std::string::npos) return false;
-        pos = json.find('"', pos);
-        if (pos == std::string::npos) return false;
-        size_t end = json.find('"', pos + 1);
-        if (end == std::string::npos) return false;
-        val = json.substr(pos + 1, end - pos - 1);
-        return true;
-    };
-
     double spd = 0.0;
     if (extractNumber("wind_speed_10m", spd) || extractNumber("windspeed", spd) || extractNumber("wind_speed", spd)) {
         windSpeed = std::max(0.0, spd);
@@ -1067,32 +1124,19 @@ bool ParseWeatherJson(const std::string& json, bool& hasPrecip, ObjectKind& prec
         windSign = 0;
     }
 
+    double tempC = 15.0;
+    extractNumber("temperature_2m", tempC);
+    double cloud = 20.0;
+    extractNumber("cloud_cover", cloud);
+    double vis = 12000.0;
+    extractNumber("visibility", vis);
+    double isDayNum = 1.0;
+    extractNumber("is_day", isDayNum);
+
     double wmo = -999.0;
     if (extractNumber("weather_code", wmo) || extractNumber("weathercode", wmo)) {
-        ApplyForecastCode(static_cast<int>(wmo), hasPrecip, precipKind, fx);
-        return true;
-    }
-
-    std::string cond;
-    if (extractString("condition", cond) || extractString("weather", cond)) {
-        for (auto& c : cond) c = static_cast<char>(tolower(c));
-        hasPrecip = false;
-        fx = GeneralEffectsState{};
-        if (cond.find("hail") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Hail; }
-        else if (cond.find("snow") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Snow; }
-        else if (cond.find("rain") != std::string::npos) { hasPrecip = true; precipKind = ObjectKind::Rain; }
-
-        if (cond.find("clear") != std::string::npos || cond.find("sun") != std::string::npos) fx.clear = true;
-        if (cond.find("partly") != std::string::npos) fx.partlyCloudy = true;
-        if (cond.find("overcast") != std::string::npos || cond.find("cloud") != std::string::npos) fx.overcast = true;
-        if (cond.find("dust") != std::string::npos) fx.dust = true;
-        if (cond.find("fog") != std::string::npos || cond.find("mist") != std::string::npos) fx.fog = true;
-        if (cond.find("smog") != std::string::npos) fx.smog = true;
-        if (cond.find("thunder") != std::string::npos || cond.find("storm") != std::string::npos) fx.thunderstorm = true;
-        if (cond.find("aurora") != std::string::npos) fx.aurora = true;
-        if (cond.find("mirage") != std::string::npos) fx.mirage = true;
-        if (cond.find("rainbow") != std::string::npos) fx.rainbow = true;
-        if (cond.find("halo") != std::string::npos) fx.halo = true;
+        ApplyForecastMetrics(static_cast<int>(wmo), windSpeed, tempC, static_cast<int>(cloud),
+                             vis, isDayNum > 0.5, hasPrecip, precipKind, fx);
         return true;
     }
     return false;
@@ -1106,7 +1150,7 @@ bool FetchWeatherSource(const std::wstring& src, const Settings& cfg, bool& hasP
         std::wstringstream url;
         url << L"https://api.open-meteo.com/v1/forecast?latitude=" << cfg.latitude
             << L"&longitude=" << cfg.longitude
-            << L"¤t=weather_code,wind_speed_10m,wind_direction_10m";
+            << L"¤t=weather_code,wind_speed_10m,wind_direction_10m,temperature_2m,cloud_cover,visibility,is_day";
         std::string body = HttpGetUtf8(url.str());
         if (body.empty()) return false;
         return ParseWeatherJson(body, hasPrecip, precipKind, fx, windSpeed, windSign);
@@ -1203,7 +1247,7 @@ int ComputeBottomLimitY(const Settings& cfg) {
 
 bool IsFullscreenAppActive() {
     HWND fg = GetForegroundWindow();
-    if (!fg || fg == g_overlayHwnd) return false;
+    if (!fg || fg == g_desktopOverlayHwnd || fg == g_topWindowsOverlayHwnd) return false;
     wchar_t cls[128] = {};
     GetClassNameW(fg, cls, _countof(cls));
     std::wstring clsStr = cls;
@@ -1244,7 +1288,7 @@ struct EnumCtx {
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     auto* ctx = reinterpret_cast<EnumCtx*>(lParam);
     if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) return TRUE;
-    if (hwnd == g_overlayHwnd) return TRUE;
+    if (hwnd == g_desktopOverlayHwnd || hwnd == g_topWindowsOverlayHwnd) return TRUE;
 
     LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
     if (exStyle & WS_EX_TOOLWINDOW) return TRUE;
@@ -1294,7 +1338,7 @@ HWND FindShellDefViewHost() {
     return progman;
 }
 
-void PositionOverlayBelowIcons(HWND overlay, const std::wstring& mode) {
+void PositionDesktopOverlay(HWND overlay, const std::wstring& mode) {
     if (!overlay) return;
     HWND insertAfter = HWND_BOTTOM;
     if (mode == L"auto") {
@@ -1307,6 +1351,18 @@ void PositionOverlayBelowIcons(HWND overlay, const std::wstring& mode) {
     SetWindowPos(
         overlay,
         insertAfter,
+        g_canvasLeft,
+        g_canvasTop,
+        g_canvasWidth,
+        g_canvasHeight,
+        SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+
+void PositionTopWindowsOverlay(HWND overlay) {
+    if (!overlay) return;
+    SetWindowPos(
+        overlay,
+        HWND_TOPMOST,
         g_canvasLeft,
         g_canvasTop,
         g_canvasWidth,
@@ -1371,19 +1427,36 @@ D2D1_COLOR_F GetColorForKind(const Settings& cfg, ObjectKind kind) {
 }
 
 void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, bool isSeasonal,
-                      double scale, bool randomY) {
-    std::uniform_real_distribution<float> xDist(-60.0f, static_cast<float>(g_canvasWidth) + 60.0f);
-    std::uniform_real_distribution<float> yDist(0.0f, static_cast<float>(g_canvasHeight));
+                      double scale, float vx, bool randomY) {
     std::uniform_real_distribution<float> phaseDist(0.0f, 6.2831853f);
     std::uniform_real_distribution<float> alphaDist(0.68f, 0.96f);
 
     item.kind = kind;
     item.isSeasonalLayer = isSeasonal;
-    item.x = xDist(rng);
-    item.y = randomY ? yDist(rng) : -24.0f;
     item.swayPhase = phaseDist(rng);
     item.angle = phaseDist(rng);
     item.alpha = alphaDist(rng);
+
+    if (randomY) {
+        std::uniform_real_distribution<float> xDist(-40.0f, static_cast<float>(g_canvasWidth) + 40.0f);
+        std::uniform_real_distribution<float> yDist(0.0f, static_cast<float>(g_canvasHeight));
+        item.x = xDist(rng);
+        item.y = yDist(rng);
+    } else if (vx < -25.0f && ((rng() % 100) < 35)) {
+        // Косой ветер влево -> спавн с правого края
+        std::uniform_real_distribution<float> ySide(0.0f, static_cast<float>(g_canvasHeight) * 0.75f);
+        item.x = static_cast<float>(g_canvasWidth) + 20.0f;
+        item.y = ySide(rng);
+    } else if (vx > 25.0f && ((rng() % 100) < 35)) {
+        // Косой ветер вправо -> спавн с левого края
+        std::uniform_real_distribution<float> ySide(0.0f, static_cast<float>(g_canvasHeight) * 0.75f);
+        item.x = -20.0f;
+        item.y = ySide(rng);
+    } else {
+        std::uniform_real_distribution<float> xTop(-60.0f, static_cast<float>(g_canvasWidth) + 60.0f);
+        item.x = xTop(rng);
+        item.y = -24.0f;
+    }
 
     float s = static_cast<float>(scale);
     if (kind == ObjectKind::Rain) {
@@ -1396,12 +1469,34 @@ void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, boo
         item.size = (8.0f + (rng() % 35) * 0.1f) * s;
         item.spin = ((rng() % 100) - 50) * 0.04f;
     } else if (kind == ObjectKind::AutumnLeaves) {
-        item.size = (9.5f + (rng() % 45) * 0.1f) * s;
-        item.spin = ((rng() % 100) - 50) * 0.05f;
+        item.size = (10.0f + (rng() % 45) * 0.1f) * s;
+        item.spin = ((rng() % 100) - 50) * 0.04f;
     } else {
         item.size = (5.5f + (rng() % 40) * 0.1f) * s;
         item.spin = ((rng() % 100) - 50) * 0.025f;
     }
+}
+
+void DrawMapleLeaf(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float x, float y, float r) {
+    // 5-лопастный кленовый силуэт
+    D2D1_POINT_2F pts[10] = {
+        {x, y - r},
+        {x + r * 0.30f, y - r * 0.42f},
+        {x + r * 0.92f, y - r * 0.35f},
+        {x + r * 0.52f, y + r * 0.14f},
+        {x + r * 0.72f, y + r * 0.68f},
+        {x, y + r * 0.40f},
+        {x - r * 0.72f, y + r * 0.68f},
+        {x - r * 0.52f, y + r * 0.14f},
+        {x - r * 0.92f, y - r * 0.35f},
+        {x - r * 0.30f, y - r * 0.42f}
+    };
+    for (int i = 0; i < 10; ++i) {
+        int next = (i + 1) % 10;
+        rt->DrawLine(pts[i], pts[next], brush, std::max(1.4f, r * 0.22f));
+    }
+    rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r * 0.48f, r * 0.48f), brush);
+    rt->DrawLine(D2D1::Point2F(x, y + r * 0.35f), D2D1::Point2F(x, y + r * 1.15f), brush, std::max(1.2f, r * 0.16f));
 }
 
 void DrawItemShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
@@ -1417,9 +1512,9 @@ void DrawItemShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
     rt->SetTransform(D2D1::Matrix3x2F::Rotation(angle * 57.29578f, D2D1::Point2F(x, y)) * oldXform);
 
     if (kind == ObjectKind::Petals) {
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.65f, size * 0.35f), brush);
+        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.68f, size * 0.34f), brush);
     } else if (kind == ObjectKind::AutumnLeaves) {
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), size * 0.78f, size * 0.38f), brush);
+        DrawMapleLeaf(rt, brush, x, y, size * 0.65f);
     } else if (kind == ObjectKind::Hail) {
         rt->FillRectangle(D2D1::RectF(x - size * 0.45f, y - size * 0.45f, x + size * 0.45f, y + size * 0.45f), brush);
     } else {
@@ -1436,43 +1531,43 @@ void DrawRainPuddle(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float 
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), width * 0.5f, height * 0.5f), brush);
 }
 
-void CleanupSurfaceResources() {
-    if (g_dcRenderTarget) {
-        g_dcRenderTarget->Release();
-        g_dcRenderTarget = nullptr;
+void CleanupSurface(LayeredSurface& surf) {
+    if (surf.rt) {
+        surf.rt->Release();
+        surf.rt = nullptr;
     }
-    if (g_memDC) {
-        if (g_oldBitmap) {
-            SelectObject(g_memDC, g_oldBitmap);
-            g_oldBitmap = nullptr;
+    if (surf.memDC) {
+        if (surf.oldBmp) {
+            SelectObject(surf.memDC, surf.oldBmp);
+            surf.oldBmp = nullptr;
         }
-        DeleteDC(g_memDC);
-        g_memDC = nullptr;
+        DeleteDC(surf.memDC);
+        surf.memDC = nullptr;
     }
-    if (g_dibBitmap) {
-        DeleteObject(g_dibBitmap);
-        g_dibBitmap = nullptr;
+    if (surf.dib) {
+        DeleteObject(surf.dib);
+        surf.dib = nullptr;
     }
-    g_dibWidth = 0;
-    g_dibHeight = 0;
+    surf.width = 0;
+    surf.height = 0;
 }
 
-bool EnsureLayeredSurface(int width, int height) {
+bool EnsureSurface(LayeredSurface& surf, int width, int height) {
     if (!g_d2dFactory) {
         D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &g_d2dFactory);
     }
     if (!g_d2dFactory) return false;
 
-    if (g_dcRenderTarget && g_memDC && g_dibBitmap && g_dibWidth == width && g_dibHeight == height) {
+    if (surf.rt && surf.memDC && surf.dib && surf.width == width && surf.height == height) {
         return true;
     }
 
-    CleanupSurfaceResources();
+    CleanupSurface(surf);
 
     HDC screenDC = GetDC(nullptr);
-    g_memDC = CreateCompatibleDC(screenDC);
+    surf.memDC = CreateCompatibleDC(screenDC);
     ReleaseDC(nullptr, screenDC);
-    if (!g_memDC) return false;
+    if (!surf.memDC) return false;
 
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -1483,25 +1578,37 @@ bool EnsureLayeredSurface(int width, int height) {
     bmi.bmiHeader.biCompression = BI_RGB;
 
     void* bits = nullptr;
-    g_dibBitmap = CreateDIBSection(g_memDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (!g_dibBitmap) {
-        CleanupSurfaceResources();
+    surf.dib = CreateDIBSection(surf.memDC, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+    if (!surf.dib) {
+        CleanupSurface(surf);
         return false;
     }
 
-    g_oldBitmap = SelectObject(g_memDC, g_dibBitmap);
-    g_dibWidth = width;
-    g_dibHeight = height;
+    surf.oldBmp = SelectObject(surf.memDC, surf.dib);
+    surf.width = width;
+    surf.height = height;
 
     D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT,
         D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
 
-    if (FAILED(g_d2dFactory->CreateDCRenderTarget(&props, &g_dcRenderTarget)) || !g_dcRenderTarget) {
-        CleanupSurfaceResources();
+    if (FAILED(g_d2dFactory->CreateDCRenderTarget(&props, &surf.rt)) || !surf.rt) {
+        CleanupSurface(surf);
         return false;
     }
     return true;
+}
+
+void PresentSurface(HWND hwnd, LayeredSurface& surf) {
+    if (!hwnd || !IsWindow(hwnd) || !surf.memDC) return;
+    POINT ptDst = {g_canvasLeft, g_canvasTop};
+    SIZE sizeWnd = {g_canvasWidth, g_canvasHeight};
+    POINT ptSrc = {0, 0};
+    BLENDFUNCTION blend = {};
+    blend.BlendOp = AC_SRC_OVER;
+    blend.SourceConstantAlpha = 255;
+    blend.AlphaFormat = AC_SRC_ALPHA;
+    UpdateLayeredWindow(hwnd, nullptr, &ptDst, &sizeWnd, surf.memDC, &ptSrc, 0, &blend, ULW_ALPHA);
 }
 
 void DrawVerticalGradientTint(ID2D1DCRenderTarget* rt, D2D1_COLOR_F topCol, D2D1_COLOR_F botCol,
@@ -1535,7 +1642,6 @@ void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, const Settings& cfg, float stren
     float radius = minSide * (static_cast<float>(cfg.rainbowRadius) / 100.0f);
     if (radius < 4.0f) return;
 
-    // X: 0..100 слева направо; Y: 0..100 снизу вверх
     float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.rainbowCenterX) / 100.0f);
     float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.rainbowCenterY) / 100.0f);
 
@@ -1581,7 +1687,6 @@ void DrawSmoothHalo(ID2D1DCRenderTarget* rt, const Settings& cfg, float strength
     D2D1_COLOR_F base = cfg.hasCustomHaloColor ? cfg.colorHalo : D2D1::ColorF(1.0f, 0.96f, 0.84f, 0.30f);
     float pulse = 0.94f + 0.06f * static_cast<float>(std::sin(timeSec * 1.8));
 
-    // Мягкое радиальное свечение внутри ореола + тонкое кольцо на границе радиуса
     D2D1_COLOR_F innerCol = base;
     innerCol.a = std::clamp(base.a * 0.35f * strength * pulse, 0.0f, 0.5f);
     D2D1_COLOR_F outerCol = base;
@@ -1677,129 +1782,158 @@ void DrawSmoothMirage(ID2D1DCRenderTarget* rt, const Settings& cfg, float streng
     }
 }
 
-void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec) {
-    if (!g_overlayHwnd || !IsWindow(g_overlayHwnd)) return;
-    if (!EnsureLayeredSurface(g_canvasWidth, g_canvasHeight)) return;
+void DrawSnowballShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float x, float y, float radius, float alpha) {
+    brush->SetOpacity(std::clamp(alpha, 0.1f, 1.0f));
+    rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), radius, radius), brush);
+    brush->SetOpacity(std::clamp(alpha * 0.35f, 0.05f, 0.5f));
+    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), radius, radius), brush, 1.2f);
+}
 
-    RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
-    g_dcRenderTarget->BindDC(g_memDC, &bindRect);
+void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec) {
+    float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-    g_dcRenderTarget->BeginDraw();
-    g_dcRenderTarget->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+    // 1. Нижний слой (под иконками/окнами): эффекты, падающие объекты, нижнее накопление и нижние снежные шарики
+    if (g_desktopOverlayHwnd && EnsureSurface(g_desktopSurface, g_canvasWidth, g_canvasHeight)) {
+        RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
+        g_desktopSurface.rt->BindDC(g_desktopSurface.memDC, &bindRect);
+        g_desktopSurface.rt->BeginDraw();
+        g_desktopSurface.rt->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
 
-    float k = static_cast<float>(cfg.effectsIntensity) / 25.0f;
-    float hFloat = static_cast<float>(g_canvasHeight);
+        float k = static_cast<float>(cfg.effectsIntensity) / 25.0f;
+        float hFloat = static_cast<float>(g_canvasHeight);
 
-    if (fx.clear) {
-        D2D1_COLOR_F cTop = cfg.hasCustomClearColor ? cfg.colorClear : D2D1::ColorF(1.0f, 0.94f, 0.72f, 0.16f);
-        D2D1_COLOR_F cBot = cTop;
-        cBot.a *= 0.2f;
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.partlyCloudy) {
-        D2D1_COLOR_F cTop = cfg.hasCustomPartlyCloudyColor ? cfg.colorPartlyCloudy : D2D1::ColorF(0.90f, 0.93f, 0.97f, 0.18f);
-        D2D1_COLOR_F cBot = cTop;
-        cBot.a *= 0.35f;
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.overcast) {
-        D2D1_COLOR_F cTop = cfg.hasCustomOvercastColor ? cfg.colorOvercast : D2D1::ColorF(0.50f, 0.55f, 0.62f, 0.28f);
-        D2D1_COLOR_F cBot = cTop;
-        cBot.a *= 0.65f;
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.dust) {
-        D2D1_COLOR_F cTop = cfg.hasCustomDustColor ? cfg.colorDust : D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.10f);
-        D2D1_COLOR_F cBot = cfg.hasCustomDustColor ? cfg.colorDust : D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.26f);
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.fog) {
-        D2D1_COLOR_F cTop = cfg.hasCustomFogColor ? cfg.colorFog : D2D1::ColorF(0.84f, 0.88f, 0.92f, 0.14f);
-        D2D1_COLOR_F cBot = cfg.hasCustomFogColor ? cfg.colorFog : D2D1::ColorF(0.84f, 0.88f, 0.92f, 0.34f);
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.smog) {
-        D2D1_COLOR_F cTop = cfg.hasCustomSmogColor ? cfg.colorSmog : D2D1::ColorF(0.54f, 0.48f, 0.40f, 0.16f);
-        D2D1_COLOR_F cBot = cfg.hasCustomSmogColor ? cfg.colorSmog : D2D1::ColorF(0.54f, 0.48f, 0.40f, 0.36f);
-        DrawVerticalGradientTint(g_dcRenderTarget, cTop, cBot, 0.0f, hFloat, k);
-    }
-    if (fx.aurora) {
-        DrawSmoothAurora(g_dcRenderTarget, cfg, k, timeSec);
-    }
-    if (fx.mirage) {
-        DrawSmoothMirage(g_dcRenderTarget, cfg, k, bottomLimitY, timeSec);
-    }
-    if (fx.rainbow) {
-        DrawSmoothRainbow(g_dcRenderTarget, cfg, k, timeSec);
-    }
-    if (fx.halo) {
-        DrawSmoothHalo(g_dcRenderTarget, cfg, k, timeSec);
-    }
-    if (fx.thunderstorm && g_lightning.timer > 0.0f) {
-        D2D1_COLOR_F tc = cfg.hasCustomThunderstormColor ? cfg.colorThunderstorm : D2D1::ColorF(0.86f, 0.93f, 1.0f, 0.95f);
-        tc.a = std::clamp(g_lightning.timer * 4.2f * std::max(0.25f, k), 0.0f, 1.0f);
-        ID2D1SolidColorBrush* tb = nullptr;
-        if (SUCCEEDED(g_dcRenderTarget->CreateSolidColorBrush(tc, &tb)) && tb) {
-            float curX = g_lightning.xStart;
-            float curY = 0.0f;
-            int segs = 14;
-            float stepY = std::max(20.0f, (bottomLimitY - g_canvasTop) * 0.72f / segs);
-            for (int i = 0; i < segs; ++i) {
-                float t = static_cast<float>(i + 1) / segs;
-                float nextX = g_lightning.xStart + (g_lightning.xEnd - g_lightning.xStart) * t + ((i % 2 == 0) ? 16.0f : -16.0f);
-                float nextY = curY + stepY;
-                g_dcRenderTarget->DrawLine(D2D1::Point2F(curX, curY), D2D1::Point2F(nextX, nextY), tb, 2.8f);
-                curX = nextX;
-                curY = nextY;
-            }
-            tb->Release();
+        if (fx.clear) {
+            D2D1_COLOR_F cTop = cfg.hasCustomClearColor ? cfg.colorClear : D2D1::ColorF(1.0f, 0.94f, 0.72f, 0.16f);
+            D2D1_COLOR_F cBot = cTop;
+            cBot.a *= 0.2f;
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
         }
-    }
-
-    ID2D1SolidColorBrush* brush = nullptr;
-    if (SUCCEEDED(g_dcRenderTarget->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &brush)) && brush) {
-        for (const auto& p : g_falling) {
-            brush->SetColor(GetColorForKind(cfg, p.kind));
-            DrawItemShape(g_dcRenderTarget, brush, p.kind, p.x, p.y, p.size, p.angle, precipVx, p.alpha);
+        if (fx.partlyCloudy) {
+            D2D1_COLOR_F cTop = cfg.hasCustomPartlyCloudyColor ? cfg.colorPartlyCloudy : D2D1::ColorF(0.90f, 0.93f, 0.97f, 0.18f);
+            D2D1_COLOR_F cBot = cTop;
+            cBot.a *= 0.35f;
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
         }
+        if (fx.overcast) {
+            D2D1_COLOR_F cTop = cfg.hasCustomOvercastColor ? cfg.colorOvercast : D2D1::ColorF(0.50f, 0.55f, 0.62f, 0.28f);
+            D2D1_COLOR_F cBot = cTop;
+            cBot.a *= 0.65f;
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
+        }
+        if (fx.dust) {
+            D2D1_COLOR_F cTop = cfg.hasCustomDustColor ? cfg.colorDust : D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.10f);
+            D2D1_COLOR_F cBot = cfg.hasCustomDustColor ? cfg.colorDust : D2D1::ColorF(0.84f, 0.68f, 0.45f, 0.26f);
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
+        }
+        if (fx.fog) {
+            D2D1_COLOR_F cTop = cfg.hasCustomFogColor ? cfg.colorFog : D2D1::ColorF(0.84f, 0.88f, 0.92f, 0.14f);
+            D2D1_COLOR_F cBot = cfg.hasCustomFogColor ? cfg.colorFog : D2D1::ColorF(0.84f, 0.88f, 0.92f, 0.34f);
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
+        }
+        if (fx.smog) {
+            D2D1_COLOR_F cTop = cfg.hasCustomSmogColor ? cfg.colorSmog : D2D1::ColorF(0.54f, 0.48f, 0.40f, 0.16f);
+            D2D1_COLOR_F cBot = cfg.hasCustomSmogColor ? cfg.colorSmog : D2D1::ColorF(0.54f, 0.48f, 0.40f, 0.36f);
+            DrawVerticalGradientTint(g_desktopSurface.rt, cTop, cBot, 0.0f, hFloat, k);
+        }
+        if (fx.aurora) DrawSmoothAurora(g_desktopSurface.rt, cfg, k, timeSec);
+        if (fx.mirage) DrawSmoothMirage(g_desktopSurface.rt, cfg, k, bottomLimitY, timeSec);
+        if (fx.rainbow) DrawSmoothRainbow(g_desktopSurface.rt, cfg, k, timeSec);
+        if (fx.halo) DrawSmoothHalo(g_desktopSurface.rt, cfg, k, timeSec);
 
-        float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
-        for (const auto& fo : g_fallen) {
-            float drawX = fo.relX;
-            float drawY = fo.relY;
-            if (fo.onWindow) {
-                auto it = g_windows.find(fo.hostWindow);
-                if (it == g_windows.end()) continue;
-                drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + fo.relX;
-                drawY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY;
-            } else if (!fo.fallingOff) {
-                drawY = bottomRelY + fo.relY;
-            }
-            brush->SetColor(GetColorForKind(cfg, fo.kind));
-            if (!fo.onWindow && !fo.fallingOff && fo.kind == ObjectKind::Rain) {
-                DrawRainPuddle(g_dcRenderTarget, brush, drawX, bottomRelY - 1.0f, fo.size, fo.alpha);
-            } else {
-                DrawItemShape(g_dcRenderTarget, brush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
+        if (fx.thunderstorm && g_lightning.timer > 0.0f) {
+            D2D1_COLOR_F tc = cfg.hasCustomThunderstormColor ? cfg.colorThunderstorm : D2D1::ColorF(0.86f, 0.93f, 1.0f, 0.95f);
+            tc.a = std::clamp(g_lightning.timer * 4.2f * std::max(0.25f, k), 0.0f, 1.0f);
+            ID2D1SolidColorBrush* tb = nullptr;
+            if (SUCCEEDED(g_desktopSurface.rt->CreateSolidColorBrush(tc, &tb)) && tb) {
+                float curX = g_lightning.xStart;
+                float curY = 0.0f;
+                int segs = 14;
+                float stepY = std::max(20.0f, (bottomLimitY - g_canvasTop) * 0.72f / segs);
+                for (int i = 0; i < segs; ++i) {
+                    float t = static_cast<float>(i + 1) / segs;
+                    float nextX = g_lightning.xStart + (g_lightning.xEnd - g_lightning.xStart) * t + ((i % 2 == 0) ? 16.0f : -16.0f);
+                    float nextY = curY + stepY;
+                    g_desktopSurface.rt->DrawLine(D2D1::Point2F(curX, curY), D2D1::Point2F(nextX, nextY), tb, 2.8f);
+                    curX = nextX;
+                    curY = nextY;
+                }
+                tb->Release();
             }
         }
 
-        brush->Release();
+        ID2D1SolidColorBrush* brush = nullptr;
+        if (SUCCEEDED(g_desktopSurface.rt->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &brush)) && brush) {
+            for (const auto& p : g_falling) {
+                brush->SetColor(GetColorForKind(cfg, p.kind));
+                DrawItemShape(g_desktopSurface.rt, brush, p.kind, p.x, p.y, p.size, p.angle, precipVx, p.alpha);
+            }
+
+            if (cfg.enableBottomAccumulation) {
+                for (const auto& fo : g_fallen) {
+                    if (fo.onWindow) continue;
+                    float drawY = fo.fallingOff ? fo.relY : (bottomRelY + fo.relY);
+                    brush->SetColor(GetColorForKind(cfg, fo.kind));
+                    if (!fo.fallingOff && fo.kind == ObjectKind::Rain) {
+                        DrawRainPuddle(g_desktopSurface.rt, brush, fo.relX, bottomRelY - 1.0f, fo.size, fo.alpha);
+                    } else {
+                        DrawItemShape(g_desktopSurface.rt, brush, fo.kind, fo.relX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
+                    }
+                }
+                for (const auto& sb : g_snowballs) {
+                    if (sb.onWindow) continue;
+                    float drawY = sb.fallingOff ? sb.relY : (bottomRelY - sb.radius);
+                    brush->SetColor(GetColorForKind(cfg, sb.kind));
+                    DrawSnowballShape(g_desktopSurface.rt, brush, sb.relX, drawY, sb.radius, sb.alpha);
+                }
+            }
+            brush->Release();
+        }
+
+        if (FAILED(g_desktopSurface.rt->EndDraw())) {
+            CleanupSurface(g_desktopSurface);
+        } else {
+            PresentSurface(g_desktopOverlayHwnd, g_desktopSurface);
+        }
     }
 
-    if (FAILED(g_dcRenderTarget->EndDraw())) {
-        CleanupSurfaceResources();
-        return;
+    // 2. Верхний слой (поверх окон): накопления и снежные шарики на верхних краях окон
+    if (g_topWindowsOverlayHwnd && EnsureSurface(g_topWindowsSurface, g_canvasWidth, g_canvasHeight)) {
+        RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
+        g_topWindowsSurface.rt->BindDC(g_topWindowsSurface.memDC, &bindRect);
+        g_topWindowsSurface.rt->BeginDraw();
+        g_topWindowsSurface.rt->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+
+        if (cfg.enableWindowAccumulation) {
+            ID2D1SolidColorBrush* brush = nullptr;
+            if (SUCCEEDED(g_topWindowsSurface.rt->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &brush)) && brush) {
+                for (const auto& fo : g_fallen) {
+                    if (!fo.onWindow) continue;
+                    auto it = g_windows.find(fo.hostWindow);
+                    if (it == g_windows.end()) continue;
+                    float drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + fo.relX;
+                    float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY;
+                    brush->SetColor(GetColorForKind(cfg, fo.kind));
+                    DrawItemShape(g_topWindowsSurface.rt, brush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
+                }
+                for (const auto& sb : g_snowballs) {
+                    if (!sb.onWindow) continue;
+                    auto it = g_windows.find(sb.hostWindow);
+                    if (it == g_windows.end()) continue;
+                    float drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + sb.relX;
+                    float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) - sb.radius;
+                    brush->SetColor(GetColorForKind(cfg, sb.kind));
+                    DrawSnowballShape(g_topWindowsSurface.rt, brush, drawX, drawY, sb.radius, sb.alpha);
+                }
+                brush->Release();
+            }
+        }
+
+        if (FAILED(g_topWindowsSurface.rt->EndDraw())) {
+            CleanupSurface(g_topWindowsSurface);
+        } else {
+            PresentSurface(g_topWindowsOverlayHwnd, g_topWindowsSurface);
+        }
     }
-
-    POINT ptDst = {g_canvasLeft, g_canvasTop};
-    SIZE sizeWnd = {g_canvasWidth, g_canvasHeight};
-    POINT ptSrc = {0, 0};
-    BLENDFUNCTION blend = {};
-    blend.BlendOp = AC_SRC_OVER;
-    blend.SourceConstantAlpha = 255;
-    blend.AlphaFormat = AC_SRC_ALPHA;
-
-    UpdateLayeredWindow(g_overlayHwnd, nullptr, &ptDst, &sizeWnd, g_memDC, &ptSrc, 0, &blend, ULW_ALPHA);
 }
 
 float ComputeHorizontalSpeedPxPerSec(FallDirMode dirMode, double mpsSpeed, int forecastSign, double forecastWindKmh) {
@@ -1855,20 +1989,30 @@ void RenderWorkerLoop() {
 
         UpdateCanvasGeometry(cfg);
 
-        if (!g_overlayHwnd) {
-            DWORD exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
-            g_overlayHwnd = CreateWindowExW(
-                exStyle, wc.lpszClassName, L"DesktopWeatherOverlay", WS_POPUP,
+        DWORD exStyle = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
+        if (!g_desktopOverlayHwnd) {
+            g_desktopOverlayHwnd = CreateWindowExW(
+                exStyle, wc.lpszClassName, L"DesktopWeatherDesktopOverlay", WS_POPUP,
                 g_canvasLeft, g_canvasTop, g_canvasWidth, g_canvasHeight,
                 nullptr, nullptr, wc.hInstance, nullptr);
-            PositionOverlayBelowIcons(g_overlayHwnd, cfg.layerAttachMode);
-        } else if (++zOrderTick >= 30) {
+            PositionDesktopOverlay(g_desktopOverlayHwnd, cfg.layerAttachMode);
+        }
+        if (!g_topWindowsOverlayHwnd) {
+            g_topWindowsOverlayHwnd = CreateWindowExW(
+                exStyle, wc.lpszClassName, L"DesktopWeatherTopWindowsOverlay", WS_POPUP,
+                g_canvasLeft, g_canvasTop, g_canvasWidth, g_canvasHeight,
+                nullptr, nullptr, wc.hInstance, nullptr);
+            PositionTopWindowsOverlay(g_topWindowsOverlayHwnd);
+        }
+
+        if (++zOrderTick >= 30) {
             zOrderTick = 0;
-            PositionOverlayBelowIcons(g_overlayHwnd, cfg.layerAttachMode);
+            PositionDesktopOverlay(g_desktopOverlayHwnd, cfg.layerAttachMode);
+            PositionTopWindowsOverlay(g_topWindowsOverlayHwnd);
         }
 
         MSG msg;
-        while (PeekMessageW(&msg, g_overlayHwnd, 0, 0, PM_REMOVE)) {
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
@@ -1956,13 +2100,13 @@ void RenderWorkerLoop() {
         }
         while (curP < targetP) {
             FallingItem it;
-            SpawnFallingItem(it, rng, precipKind, false, cfg.particleScale, true);
+            SpawnFallingItem(it, rng, precipKind, false, cfg.particleScale, precipVx, true);
             nextFalling.push_back(it);
             ++curP;
         }
         while (curS < targetS) {
             FallingItem it;
-            SpawnFallingItem(it, rng, seasonalKind, true, cfg.particleScale, true);
+            SpawnFallingItem(it, rng, seasonalKind, true, cfg.particleScale, seasonalVx, true);
             nextFalling.push_back(it);
             ++curS;
         }
@@ -2002,6 +2146,18 @@ void RenderWorkerLoop() {
                             }
                         }
                     }
+                    for (auto& sb : g_snowballs) {
+                        if (sb.onWindow && sb.hostWindow == h && !sb.fallingOff) {
+                            if ((rng() % 100) < static_cast<int>(shedProb * 100.0f)) {
+                                sb.onWindow = false;
+                                sb.fallingOff = true;
+                                sb.relX = static_cast<float>(r.left - g_canvasLeft) + sb.relX;
+                                sb.relY = static_cast<float>(r.top - g_canvasTop) - sb.radius;
+                                sb.vx = vx * 0.15f * static_cast<float>(cfg.windowInertiaFactor);
+                                sb.vy = std::max(70.0f, vy * 0.15f);
+                            }
+                        }
+                    }
                 }
             }
             wm.prevCenterX = cx;
@@ -2022,6 +2178,15 @@ void RenderWorkerLoop() {
                         fo.vy = 70.0f;
                     }
                 }
+                for (auto& sb : g_snowballs) {
+                    if (sb.onWindow && sb.hostWindow == closedHwnd) {
+                        sb.onWindow = false;
+                        sb.fallingOff = true;
+                        sb.relX = static_cast<float>(lastRect.left - g_canvasLeft) + sb.relX;
+                        sb.relY = static_cast<float>(lastRect.top - g_canvasTop) - sb.radius;
+                        sb.vy = 80.0f;
+                    }
+                }
                 it = g_windows.erase(it);
             } else {
                 ++it;
@@ -2039,6 +2204,8 @@ void RenderWorkerLoop() {
             return c;
         };
 
+        bool anyAccumEnabled = cfg.enableBottomAccumulation || cfg.enableWindowAccumulation;
+
         for (size_t i = 0; i < g_falling.size(); ++i) {
             FallingItem& p = g_falling[i];
             float vx = p.isSeasonalLayer ? seasonalVx : precipVx;
@@ -2053,9 +2220,8 @@ void RenderWorkerLoop() {
             int maxAcc = GetMaxAccumulatedForKind(cfg, p.kind, p.isSeasonalLayer);
             bool landed = false;
 
-            if (maxAcc > 0 && countAccumulated(p.kind, p.isSeasonalLayer) < maxAcc) {
-                // На окнах копят только твердые/сезонные объекты (не дождь)
-                if (p.kind != ObjectKind::Rain) {
+            if (anyAccumEnabled && maxAcc > 0 && countAccumulated(p.kind, p.isSeasonalLayer) < maxAcc) {
+                if (cfg.enableWindowAccumulation && p.kind != ObjectKind::Rain) {
                     for (const auto& kv : g_windows) {
                         const RECT& wr = kv.second.rect;
                         float wLeft = static_cast<float>(wr.left - g_canvasLeft);
@@ -2079,7 +2245,7 @@ void RenderWorkerLoop() {
                     }
                 }
 
-                if (!landed && p.y >= bottomRelY - p.size * 0.35f) {
+                if (!landed && cfg.enableBottomAccumulation && p.y >= bottomRelY - p.size * 0.35f) {
                     FallenItem fo;
                     fo.kind = p.kind;
                     fo.isSeasonalLayer = p.isSeasonalLayer;
@@ -2095,8 +2261,8 @@ void RenderWorkerLoop() {
                 }
             }
 
-            if (landed || p.y > g_canvasHeight + 30.0f || p.x < -120.0f || p.x > g_canvasWidth + 120.0f) {
-                SpawnFallingItem(p, rng, p.kind, p.isSeasonalLayer, cfg.particleScale, false);
+            if (landed || p.y > g_canvasHeight + 30.0f || p.x < -140.0f || p.x > g_canvasWidth + 140.0f) {
+                SpawnFallingItem(p, rng, p.kind, p.isSeasonalLayer, cfg.particleScale, vx, false);
             }
         }
 
@@ -2111,6 +2277,8 @@ void RenderWorkerLoop() {
 
         float cRad = static_cast<float>(cfg.cursorRadiusPx);
         float cMoveLen = std::hypot(cDx, cDy);
+        float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
+        float maxLeafPileH = static_cast<float>(cfg.leafPileMaxHeightPx);
 
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
@@ -2146,34 +2314,71 @@ void RenderWorkerLoop() {
                 continue;
             }
 
-            // Для луж дождя внизу экрана не делаем сугробов/кучек при движении
+            bool isSnow = (fo.kind == ObjectKind::Snow || fo.kind == ObjectKind::ExtraSnow);
+            bool isLeaf = (fo.kind == ObjectKind::AutumnLeaves);
             bool isPuddle = (!fo.onWindow && !fo.fallingOff && fo.kind == ObjectKind::Rain);
 
-            if (cfg.cursorAction == CursorActionMode::Move && !isPuddle && dist > 0.1f && dist < cRad) {
-                float weight = (1.0f - dist / cRad);
-                float dirX = (cMoveLen > 0.5f) ? (cDx / cMoveLen) : ((absX - cX) / dist);
-                float pushSpeed = (cMoveLen > 0.5f) ? std::min(420.0f, cMoveLen * 18.0f + 90.0f) : 140.0f;
-                float shiftX = dirX * pushSpeed * weight * dt;
-
-                if (fo.onWindow) {
-                    auto it = g_windows.find(fo.hostWindow);
-                    if (it != g_windows.end()) {
-                        int w = it->second.rect.right - it->second.rect.left;
-                        fo.relX = std::clamp(fo.relX + shiftX, 2.0f, static_cast<float>(std::max(3, w - 2)));
-                        if (absX + shiftX < it->second.rect.left - g_canvasLeft ||
-                            absX + shiftX > it->second.rect.right - g_canvasLeft) {
-                            fo.onWindow = false;
-                            fo.fallingOff = true;
-                            fo.relX = absX + shiftX;
-                            fo.relY = absY;
-                            fo.vx = dirX * 110.0f;
-                            fo.vy = 85.0f;
+            if (cfg.cursorAction == CursorActionMode::Move && !isPuddle && dist < cRad && cMoveLen > 0.6f) {
+                float dirX = cDx / cMoveLen;
+                if (isSnow) {
+                    // Скатываем снежинки в снежный шарик около курсора
+                    Snowball* targetBall = nullptr;
+                    for (auto& sb : g_snowballs) {
+                        if (sb.onWindow == fo.onWindow && sb.hostWindow == fo.hostWindow && !sb.fallingOff) {
+                            float sbAbsX = sb.onWindow
+                                ? (static_cast<float>(g_windows[sb.hostWindow].rect.left - g_canvasLeft) + sb.relX)
+                                : sb.relX;
+                            if (std::abs(sbAbsX - cX) < cRad * 0.65f && sb.radius < maxBallR) {
+                                targetBall = &sb;
+                                break;
+                            }
                         }
                     }
-                } else if (!fo.fallingOff) {
-                    fo.relX = std::clamp(fo.relX + shiftX, 0.0f, static_cast<float>(g_canvasWidth));
+                    if (targetBall) {
+                        targetBall->radius = std::min(maxBallR, targetBall->radius + 1.15f);
+                        targetBall->vx += dirX * 28.0f;
+                    } else if (g_snowballs.size() < 40) {
+                        Snowball sb;
+                        sb.kind = fo.kind;
+                        sb.isSeasonalLayer = fo.isSeasonalLayer;
+                        sb.onWindow = fo.onWindow;
+                        sb.hostWindow = fo.hostWindow;
+                        sb.relX = fo.relX;
+                        sb.relY = fo.relY;
+                        sb.vx = dirX * 45.0f;
+                        sb.radius = std::clamp(fo.size * 1.4f, 6.0f, maxBallR);
+                        sb.alpha = fo.alpha;
+                        g_snowballs.push_back(sb);
+                    }
+                    g_fallen.erase(g_fallen.begin() + i);
+                    continue;
+                } else if (isLeaf) {
+                    // Собираем листья в кучу-холмик с ограничением по высоте
+                    float shiftX = dirX * std::min(320.0f, cMoveLen * 12.0f + 70.0f) * dt;
+                    if (fo.onWindow) {
+                        auto it = g_windows.find(fo.hostWindow);
+                        if (it != g_windows.end()) {
+                            int w = it->second.rect.right - it->second.rect.left;
+                            fo.relX = std::clamp(fo.relX + shiftX, 3.0f, static_cast<float>(std::max(4, w - 3)));
+                        }
+                    } else if (!fo.fallingOff) {
+                        fo.relX = std::clamp(fo.relX + shiftX, 0.0f, static_cast<float>(g_canvasWidth));
+                        int nearCount = 0;
+                        for (const auto& other : g_fallen) {
+                            if (!other.onWindow && !other.fallingOff && other.kind == ObjectKind::AutumnLeaves &&
+                                std::abs(other.relX - fo.relX) < fo.size * 1.4f) {
+                                ++nearCount;
+                            }
+                        }
+                        float targetLift = std::min(maxLeafPileH, nearCount * (fo.size * 0.28f));
+                        float desiredRelY = -fo.size * 0.35f - targetLift;
+                        fo.relY += (desiredRelY - fo.relY) * std::min(1.0f, dt * 8.0f);
+                    }
                 } else {
-                    fo.vx += dirX * weight * 180.0f * dt;
+                    float shiftX = dirX * 140.0f * (1.0f - dist / cRad) * dt;
+                    if (!fo.onWindow && !fo.fallingOff) {
+                        fo.relX = std::clamp(fo.relX + shiftX, 0.0f, static_cast<float>(g_canvasWidth));
+                    }
                 }
             }
 
@@ -2183,6 +2388,10 @@ void RenderWorkerLoop() {
                 fo.relY += fo.vy * dt;
                 fo.angle += 2.5f * dt;
                 if (fo.relY >= bottomRelY - fo.size * 0.35f) {
+                    if (!cfg.enableBottomAccumulation) {
+                        g_fallen.erase(g_fallen.begin() + i);
+                        continue;
+                    }
                     fo.fallingOff = false;
                     fo.onWindow = false;
                     fo.vx = 0.0f;
@@ -2194,17 +2403,102 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        RenderFrame(cfg, activeFx, bottomLimitY, precipVx, timeSec);
+        // Обновление снежных шариков (катание, срыв с края окна, рассыпание при падении вниз)
+        for (size_t i = 0; i < g_snowballs.size();) {
+            Snowball& sb = g_snowballs[i];
+            sb.ageSec += dt;
+
+            double lifeMin = GetLifetimeMinForKind(cfg, sb.kind, sb.isSeasonalLayer);
+            if (lifeMin >= 0.0 && sb.ageSec >= lifeMin * 60.0) {
+                sb.alpha -= dt * 1.5f;
+                if (sb.alpha <= 0.03f) {
+                    g_snowballs.erase(g_snowballs.begin() + i);
+                    continue;
+                }
+            }
+
+            if (sb.onWindow) {
+                auto it = g_windows.find(sb.hostWindow);
+                if (it != g_windows.end()) {
+                    int w = it->second.rect.right - it->second.rect.left;
+                    float absX = static_cast<float>(it->second.rect.left - g_canvasLeft) + sb.relX;
+                    float absY = static_cast<float>(it->second.rect.top - g_canvasTop) - sb.radius;
+
+                    if (cfg.cursorAction == CursorActionMode::Clear && std::hypot(absX - cX, absY - cY) < cRad) {
+                        g_snowballs.erase(g_snowballs.begin() + i);
+                        continue;
+                    }
+                    if (cfg.cursorAction == CursorActionMode::Move && std::hypot(absX - cX, absY - cY) < cRad && cMoveLen > 0.5f) {
+                        sb.vx += (cDx / cMoveLen) * 140.0f * dt;
+                    }
+                    sb.relX += sb.vx * dt;
+                    sb.vx *= std::pow(0.15f, dt);
+
+                    if (sb.relX < 0.0f || sb.relX > static_cast<float>(w)) {
+                        sb.onWindow = false;
+                        sb.fallingOff = true;
+                        sb.relX = absX;
+                        sb.relY = absY;
+                        sb.vy = 90.0f;
+                    }
+                }
+            } else if (sb.fallingOff) {
+                sb.vy += 380.0f * dt;
+                sb.relX += sb.vx * dt;
+                sb.relY += sb.vy * dt;
+
+                if (sb.relY + sb.radius >= bottomRelY) {
+                    // Рассыпаем шарик обратно на снежинки при ударе о нижнюю границу
+                    int maxAcc = GetMaxAccumulatedForKind(cfg, sb.kind, sb.isSeasonalLayer);
+                    int curCount = countAccumulated(sb.kind, sb.isSeasonalLayer);
+                    int flakesToSpawn = std::clamp(static_cast<int>(sb.radius / 3.0f), 4, 18);
+                    for (int k = 0; k < flakesToSpawn && cfg.enableBottomAccumulation && curCount + k < maxAcc; ++k) {
+                        FallenItem flake;
+                        flake.kind = sb.kind;
+                        flake.isSeasonalLayer = sb.isSeasonalLayer;
+                        flake.onWindow = false;
+                        flake.relX = sb.relX + static_cast<float>((rng() % 36) - 18);
+                        flake.relY = -static_cast<float>(4.0 + (rng() % 8));
+                        flake.size = static_cast<float>(5.0 + (rng() % 30) * 0.1f) * static_cast<float>(cfg.particleScale);
+                        flake.angle = static_cast<float>(rng() % 628) * 0.01f;
+                        flake.alpha = sb.alpha;
+                        g_fallen.push_back(flake);
+                    }
+                    g_snowballs.erase(g_snowballs.begin() + i);
+                    continue;
+                }
+            } else {
+                float absY = bottomRelY - sb.radius;
+                if (cfg.cursorAction == CursorActionMode::Clear && std::hypot(sb.relX - cX, absY - cY) < cRad) {
+                    g_snowballs.erase(g_snowballs.begin() + i);
+                    continue;
+                }
+                if (cfg.cursorAction == CursorActionMode::Move && std::hypot(sb.relX - cX, absY - cY) < cRad && cMoveLen > 0.5f) {
+                    sb.vx += (cDx / cMoveLen) * 190.0f * dt;
+                }
+                sb.relX = std::clamp(sb.relX + sb.vx * dt, sb.radius, static_cast<float>(std::max(10.0f, g_canvasWidth - sb.radius)));
+                sb.vx *= std::pow(0.12f, dt);
+            }
+
+            ++i;
+        }
+
+        RenderFrames(cfg, activeFx, bottomLimitY, precipVx, timeSec);
 
         int frameMs = 1000 / cfg.targetFps;
         std::this_thread::sleep_for(std::chrono::milliseconds(frameMs));
     }
 
-    if (g_overlayHwnd) {
-        DestroyWindow(g_overlayHwnd);
-        g_overlayHwnd = nullptr;
+    if (g_desktopOverlayHwnd) {
+        DestroyWindow(g_desktopOverlayHwnd);
+        g_desktopOverlayHwnd = nullptr;
     }
-    CleanupSurfaceResources();
+    if (g_topWindowsOverlayHwnd) {
+        DestroyWindow(g_topWindowsOverlayHwnd);
+        g_topWindowsOverlayHwnd = nullptr;
+    }
+    CleanupSurface(g_desktopSurface);
+    CleanupSurface(g_topWindowsSurface);
     if (g_d2dFactory) {
         g_d2dFactory->Release();
         g_d2dFactory = nullptr;
