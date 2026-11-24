@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         1.2.0
+// @version         1.3.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -46,12 +46,11 @@
   $description: "Comma-separated executable names (kept for compatibility). Default: obs64.exe, ApplicationFrameHost.exe."
 - cursorAction: clear
   $name: "[System] Cursor action"
-  $description: "none = ignore cursor; clear = erase fallen items on touch (snowballs/snowman scattered by click); push = gently scatter/push; secret = special cursor interaction."
+  $description: "none = ignore cursor; clear = erase fallen items on touch (extra-snow snowman scattered by click); push = gently scatter/push and roll extra-snow snowman."
   $options:
     - none: None (ignore cursor)
-    - clear: Clear (erase fallen items; click scatters snowballs/snowman)
-    - push: Push (gently scatter/push)
-    - secret: Secret
+    - clear: Clear (erase fallen items; click scatters snowman)
+    - push: Push (gently scatter/push & roll extra-snow snowman)
 - cursorRadiusPx: 95
   $name: "[System] Cursor radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
@@ -248,10 +247,7 @@
 # --- 7. SNOWBALLS & SCALE ---
 - snowballMaxRadiusPx: 34
   $name: "[Snowballs] Max radius (px)"
-  $description: "Max radius of each of the up to 3 bottom snowballs (8 to 120). Invalid/out-of-range resets to 34."
-- leafPileMaxHeightPx: 54
-  $name: "[Secret] Easter egg threshold scale (px)"
-  $description: "Controls threshold scale for secret seasonal discoveries (8 to 250). Invalid/out-of-range resets to 54."
+  $description: "Max radius of each of up to 3 snowman balls built only from seasonal snow (extra_snow) at bottom (8 to 120). Invalid/out-of-range resets to 34."
 - particleScale: "1.0"
   $name: "[Objects] Size scale"
   $description: "Size multiplier for falling and fallen objects (0.3 to 4.0). Invalid resets to 1.0."
@@ -333,6 +329,7 @@ constexpr float kGravity = 2200.0f;
 constexpr float kCapEdgeTaper = 8.0f;
 constexpr float kSnowKernel[] = {0.10f, 0.25f, 0.50f, 0.80f, 1.00f, 0.80f, 0.50f, 0.25f, 0.10f};
 constexpr float kSnowKernelSum = 4.30f;
+constexpr size_t kMaxSnowmanBalls = 3;
 
 enum class ObjectKind {
     Rain,
@@ -375,8 +372,7 @@ enum class FallDirMode {
 enum class CursorActionMode {
     None,
     Clear,
-    Push,
-    Secret
+    Push
 };
 
 struct GeneralEffectsState {
@@ -402,6 +398,19 @@ struct ArcGeometry {
     int radius = 50;
     int centerX = 50;
     int centerY = 50;
+};
+
+struct CachedArcLayout {
+    int canvasW = 0;
+    int canvasH = 0;
+    int pctRadius = -1;
+    int pctX = -1;
+    int pctY = -1;
+    float radius = 0.0f;
+    float cx = 0.0f;
+    float cy = 0.0f;
+    float bandThickness = 0.0f;
+    bool valid = false;
 };
 
 struct Settings {
@@ -468,7 +477,6 @@ struct Settings {
     ArcGeometry haloGeom{24, 50, 72};
 
     int snowballMaxRadiusPx = 34;
-    int easterEggScalePx = 54;
     double particleScale = 1.0;
 
     bool hasCustomSnowColor = false;
@@ -555,9 +563,8 @@ struct FallenItem {
 };
 
 struct BottomSnowball {
-    ObjectKind kind = ObjectKind::Snow;
-    bool isSeasonalLayer = false;
-    int slot = 0;
+    ObjectKind kind = ObjectKind::ExtraSnow;
+    int slot = 0; // 0 = база, 1 = тело (руки + пуговица), 2 = голова (глаза + морковка)
     float x = 0.0f;
     float vx = 0.0f;
     float radius = 8.0f;
@@ -569,14 +576,6 @@ struct BottomSnowball {
     float ageSec = 0.0f;
     bool stacked = false;
     bool full = false;
-};
-
-struct SecretEasterEggState {
-    bool active = false;
-    ObjectKind kind = ObjectKind::AutumnLeaves;
-    float x = 0.0f;
-    float progress = 0.0f;
-    float phase = 0.0f;
 };
 
 struct LightningFlash {
@@ -621,17 +620,14 @@ double g_forecastWindSpeedKmh = 0.0;
 GeneralEffectsState g_forecastEffects;
 
 HWND g_overlayHwnd = nullptr;
-HHOOK g_mouseHook = nullptr;
-std::atomic<bool> g_clickRequested{false};
-std::atomic<long> g_clickScreenX{0};
-std::atomic<long> g_clickScreenY{0};
-
 std::thread g_renderThread;
 std::thread g_weatherThread;
 std::atomic<bool> g_running{false};
 
 ID2D1Factory* g_d2dFactory = nullptr;
 CachedSurface g_surface;
+CachedArcLayout g_rainbowCache;
+CachedArcLayout g_haloCache;
 
 int g_canvasLeft = 0;
 int g_canvasTop = 0;
@@ -641,22 +637,27 @@ int g_canvasHeight = 0;
 std::vector<FallingItem> g_falling;
 std::vector<FallenItem> g_fallen;
 std::vector<BottomSnowball> g_bottomSnowballs;
-SecretEasterEggState g_secretEgg;
 std::vector<SnowChunk> g_chunks;
 SnowCap g_bottomSnowCap;
 LightningFlash g_lightning;
 
-LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && g_running.load() &&
-        (wParam == WM_LBUTTONDOWN || wParam == WM_RBUTTONDOWN)) {
-        const auto* ms = reinterpret_cast<const MSLLHOOKSTRUCT*>(lParam);
-        if (ms) {
-            g_clickScreenX.store(ms->pt.x);
-            g_clickScreenY.store(ms->pt.y);
-            g_clickRequested.store(true);
-        }
+void RefreshArcCache(CachedArcLayout& cache, const ArcGeometry& geom) {
+    if (cache.valid && cache.canvasW == g_canvasWidth && cache.canvasH == g_canvasHeight &&
+        cache.pctRadius == geom.radius && cache.pctX == geom.centerX && cache.pctY == geom.centerY) {
+        return;
     }
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+    cache.canvasW = g_canvasWidth;
+    cache.canvasH = g_canvasHeight;
+    cache.pctRadius = geom.radius;
+    cache.pctX = geom.centerX;
+    cache.pctY = geom.centerY;
+
+    float minSide = static_cast<float>(std::min(g_canvasWidth, g_canvasHeight));
+    cache.radius = minSide * (static_cast<float>(geom.radius) / 100.0f);
+    cache.cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(geom.centerX) / 100.0f);
+    cache.cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(geom.centerY) / 100.0f);
+    cache.bandThickness = std::max(4.0f, cache.radius * 0.035f);
+    cache.valid = true;
 }
 
 uint32_t Hash32(uint32_t x) {
@@ -918,7 +919,6 @@ CursorActionMode ParseCursorAction(const std::wstring& s) {
     std::wstring v = ToLower(Trim(s));
     if (v == L"none") return CursorActionMode::None;
     if (v == L"push") return CursorActionMode::Push;
-    if (v == L"secret") return CursorActionMode::Secret;
     return CursorActionMode::Clear;
 }
 
@@ -1027,7 +1027,6 @@ void LoadSettingsFromWh() {
     ParseArcGeometryString(readStr(L"haloGeometry", L"24-50/72"), ArcGeometry{24, 50, 72}, next.haloGeom);
 
     next.snowballMaxRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowballMaxRadiusPx"), 8, 120, 34);
-    next.easterEggScalePx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"leafPileMaxHeightPx"), 8, 250, 54);
     next.particleScale = ParseDoubleRangeOrDefault(readStr(L"particleScale", L"1.0"), 0.3, 4.0, 1.0);
 
     TryParseHexColorStrict(readStr(L"colorRain", L""), 0.78f, next.colorRain);
@@ -1049,8 +1048,12 @@ void LoadSettingsFromWh() {
     next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
     next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
 
-    std::lock_guard<std::mutex> lock(g_mutex);
-    g_settings = next;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_settings = next;
+    }
+    g_rainbowCache.valid = false;
+    g_haloCache.valid = false;
 }
 
 std::string HttpGetUtf8(const std::wstring& url) {
@@ -1065,7 +1068,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/1.9", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/2.0", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -1388,31 +1391,18 @@ float ComputeMaxCapHeightPx(const Settings& cfg) {
     return std::clamp(10.0f + (maxAcc / 2000.0f) * 32.0f, 10.0f, 44.0f) * static_cast<float>(cfg.particleScale);
 }
 
-int ComputeSecretThreshold(const Settings& cfg) {
-    float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
-    float scaleFactor = std::clamp(static_cast<float>(cfg.easterEggScalePx) / 54.0f, 0.35f, 3.0f);
-    float threeBallsArea = 3.0f * (3.1415926f * maxBallR * maxBallR);
-    return std::clamp(static_cast<int>((threeBallsArea / 58.0f) * scaleFactor), 18, 220);
-}
-
-void ClearSeasonalArtifacts(ObjectKind keepKind) {
+void OnSeasonalModeChanged(bool extraSnowActive) {
+    // Убираем сезонные опавшие объекты другого сезона; снеговик живет только при extra_snow
     g_fallen.erase(
         std::remove_if(g_fallen.begin(), g_fallen.end(),
-                       [keepKind](const FallenItem& fo) {
-                           return fo.isSeasonalLayer && fo.kind != keepKind;
+                       [extraSnowActive](const FallenItem& fo) {
+                           if (!fo.isSeasonalLayer) return false;
+                           return !extraSnowActive || fo.kind != ObjectKind::ExtraSnow;
                        }),
         g_fallen.end());
 
-    g_bottomSnowballs.erase(
-        std::remove_if(g_bottomSnowballs.begin(), g_bottomSnowballs.end(),
-                       [keepKind](const BottomSnowball& sb) {
-                           return sb.isSeasonalLayer && sb.kind != keepKind;
-                       }),
-        g_bottomSnowballs.end());
-
-    if (g_secretEgg.active && g_secretEgg.kind != keepKind) {
-        g_secretEgg.active = false;
-        g_secretEgg.progress = 0.0f;
+    if (!extraSnowActive) {
+        g_bottomSnowballs.clear();
     }
 }
 
@@ -1847,54 +1837,10 @@ void DrawRainPuddle(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, D2D1_C
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), width * 0.5f, 1.0f), brush);
 }
 
-void DrawSecretEasterEgg(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
-                           const SecretEasterEggState& egg, float bottomRelY) {
-    if (!egg.active || egg.progress <= 0.02f) return;
-
-    float alpha = std::clamp(egg.progress * 1.1f, 0.1f, 0.96f);
-    if (egg.kind == ObjectKind::AutumnLeaves) {
-        float bob = 0.5f + 0.5f * std::sin(egg.phase);
-        float headY = bottomRelY - 5.0f - egg.progress * (14.0f + bob * 10.0f);
-        float headR = 10.0f;
-
-        brush->SetColor(D2D1::ColorF(0.45f, 0.25f, 0.10f, alpha));
-        brush->SetOpacity(alpha);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x - 8.0f, headY - 3.5f), 3.8f, 7.5f), brush);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x + 8.0f, headY - 3.5f), 3.8f, 7.5f), brush);
-
-        brush->SetColor(D2D1::ColorF(0.76f, 0.52f, 0.28f, alpha));
-        brush->SetOpacity(alpha);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x, headY), headR, headR * 0.90f), brush);
-
-        brush->SetColor(D2D1::ColorF(0.10f, 0.10f, 0.12f, alpha));
-        brush->SetOpacity(alpha);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x - 3.6f, headY - 2.0f), 1.6f, 1.6f), brush);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x + 3.6f, headY - 2.0f), 1.6f, 1.6f), brush);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x, headY + 2.6f), 2.2f, 1.6f), brush);
-    } else if (egg.kind == ObjectKind::Petals) {
-        float stemH = 7.0f + egg.progress * 20.0f;
-        float topY = bottomRelY - stemH;
-
-        brush->SetColor(D2D1::ColorF(0.18f, 0.56f, 0.22f, alpha));
-        brush->SetOpacity(alpha);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x - 7.0f, bottomRelY - 2.5f), 8.0f, 4.5f), brush);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x + 7.0f, bottomRelY - 2.5f), 8.0f, 4.5f), brush);
-
-        brush->SetColor(D2D1::ColorF(0.26f, 0.72f, 0.28f, alpha));
-        brush->SetOpacity(alpha);
-        rt->DrawLine(D2D1::Point2F(egg.x, bottomRelY - 1.0f), D2D1::Point2F(egg.x, topY), brush, 2.3f);
-
-        float leafScale = std::clamp(egg.progress, 0.35f, 1.1f);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x - 5.8f * leafScale, topY + 2.5f), 6.2f * leafScale, 3.0f * leafScale), brush);
-        rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(egg.x + 5.8f * leafScale, topY + 2.5f), 6.2f * leafScale, 3.0f * leafScale), brush);
-    }
-}
-
-void ComputeSnowballCenters(const std::vector<BottomSnowball>& balls, float bottomRelY,
-                            std::vector<float>& outX, std::vector<float>& outY) {
-    outX.resize(balls.size());
-    outY.resize(balls.size());
-    for (size_t i = 0; i < balls.size(); ++i) {
+void ComputeSnowballCentersStack(const std::vector<BottomSnowball>& balls, float bottomRelY,
+                                 float (&outX)[kMaxSnowmanBalls], float (&outY)[kMaxSnowmanBalls], size_t& count) {
+    count = std::min(balls.size(), kMaxSnowmanBalls);
+    for (size_t i = 0; i < count; ++i) {
         const auto& sb = balls[i];
         outX[i] = sb.x;
         if (i == 0 || !sb.stacked) {
@@ -1910,11 +1856,13 @@ void ComputeSnowballCenters(const std::vector<BottomSnowball>& balls, float bott
 void DrawSnowballsAndSnowman(CachedSurface& surf, const Settings& cfg,
                              const std::vector<BottomSnowball>& balls, float bottomRelY) {
     if (balls.empty()) return;
-    std::vector<float> bx, by;
-    ComputeSnowballCenters(balls, bottomRelY, bx, by);
+    float bx[kMaxSnowmanBalls] = {};
+    float by[kMaxSnowmanBalls] = {};
+    size_t count = 0;
+    ComputeSnowballCentersStack(balls, bottomRelY, bx, by, count);
 
     ID2D1SolidColorBrush* brush = surf.sharedBrush;
-    for (size_t i = 0; i < balls.size(); ++i) {
+    for (size_t i = 0; i < count; ++i) {
         const auto& sb = balls[i];
         float rx = sb.radius * (1.0f + sb.squash * 0.35f);
         float ry = std::max(2.0f, sb.radius * (1.0f - sb.squash * 0.35f));
@@ -1931,8 +1879,8 @@ void DrawSnowballsAndSnowman(CachedSurface& surf, const Settings& cfg,
         }
     }
 
-    bool hasBody = (balls.size() >= 2 && balls[1].stacked);
-    bool hasHead = (balls.size() >= 3 && balls[2].stacked);
+    bool hasBody = (count >= 2 && balls[1].stacked);
+    bool hasHead = (count >= 3 && balls[2].stacked);
 
     if (hasBody) {
         size_t bodyIdx = 1;
@@ -2025,13 +1973,8 @@ void DrawVerticalGradientTint(ID2D1DCRenderTarget* rt, D2D1_COLOR_F topCol, D2D1
 
 void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec) {
     if (cfg.rainbowGeom.radius <= 0 || strength <= 0.004f) return;
-
-    float minSide = static_cast<float>(std::min(g_canvasWidth, g_canvasHeight));
-    float radius = minSide * (static_cast<float>(cfg.rainbowGeom.radius) / 100.0f);
-    if (radius < 4.0f) return;
-
-    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.rainbowGeom.centerX) / 100.0f);
-    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.rainbowGeom.centerY) / 100.0f);
+    RefreshArcCache(g_rainbowCache, cfg.rainbowGeom);
+    if (g_rainbowCache.radius < 4.0f) return;
 
     const D2D1_COLOR_F spectrum[6] = {
         D2D1::ColorF(1.0f, 0.22f, 0.28f, 0.24f),
@@ -2042,33 +1985,26 @@ void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, con
         D2D1::ColorF(0.60f, 0.34f, 0.96f, 0.24f)
     };
 
-    float bandThickness = std::max(4.0f, radius * 0.035f);
     float shimmer = 0.92f + 0.08f * static_cast<float>(std::sin(timeSec * 1.4));
-
     for (int i = 0; i < 6; ++i) {
         D2D1_COLOR_F c = cfg.hasCustomRainbowColor ? cfg.colorRainbow : spectrum[i];
         float bandFade = 1.0f - std::abs(i - 2.5f) * 0.14f;
         float alpha = std::clamp(c.a * strength * bandFade * shimmer, 0.0f, 0.65f);
         if (alpha <= 0.003f) continue;
 
-        float r = radius - i * (bandThickness * 0.85f);
+        float r = g_rainbowCache.radius - i * (g_rainbowCache.bandThickness * 0.85f);
         if (r <= 2.0f) break;
 
         brush->SetColor(D2D1::ColorF(c.r, c.g, c.b, alpha));
         brush->SetOpacity(alpha);
-        rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), r, r), brush, bandThickness);
+        rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(g_rainbowCache.cx, g_rainbowCache.cy), r, r), brush, g_rainbowCache.bandThickness);
     }
 }
 
 void DrawSmoothHalo(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec) {
     if (cfg.haloGeom.radius <= 0 || strength <= 0.004f) return;
-
-    float minSide = static_cast<float>(std::min(g_canvasWidth, g_canvasHeight));
-    float radius = minSide * (static_cast<float>(cfg.haloGeom.radius) / 100.0f);
-    if (radius < 4.0f) return;
-
-    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.haloGeom.centerX) / 100.0f);
-    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.haloGeom.centerY) / 100.0f);
+    RefreshArcCache(g_haloCache, cfg.haloGeom);
+    if (g_haloCache.radius < 4.0f) return;
 
     D2D1_COLOR_F base = cfg.hasCustomHaloColor ? cfg.colorHalo : D2D1::ColorF(1.0f, 0.96f, 0.84f, 0.30f);
     float pulse = 0.94f + 0.06f * static_cast<float>(std::sin(timeSec * 1.8));
@@ -2086,9 +2022,9 @@ void DrawSmoothHalo(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const 
     if (SUCCEEDED(rt->CreateGradientStopCollection(stops, 2, D2D1_GAMMA_2_2, D2D1_EXTEND_MODE_CLAMP, &stopsCol)) && stopsCol) {
         ID2D1RadialGradientBrush* radBrush = nullptr;
         if (SUCCEEDED(rt->CreateRadialGradientBrush(
-                D2D1::RadialGradientBrushProperties(D2D1::Point2F(cx, cy), D2D1::Point2F(0.0f, 0.0f), radius, radius),
+                D2D1::RadialGradientBrushProperties(D2D1::Point2F(g_haloCache.cx, g_haloCache.cy), D2D1::Point2F(0.0f, 0.0f), g_haloCache.radius, g_haloCache.radius),
                 stopsCol, &radBrush)) && radBrush) {
-            rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), radius, radius), radBrush);
+            rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(g_haloCache.cx, g_haloCache.cy), g_haloCache.radius, g_haloCache.radius), radBrush);
             radBrush->Release();
         }
         stopsCol->Release();
@@ -2097,7 +2033,8 @@ void DrawSmoothHalo(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const 
     float ringAlpha = std::clamp(base.a * 0.85f * strength * pulse, 0.0f, 0.75f);
     brush->SetColor(D2D1::ColorF(base.r, base.g, base.b, ringAlpha));
     brush->SetOpacity(ringAlpha);
-    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), radius, radius), brush, std::max(2.0f, radius * 0.025f));
+    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(g_haloCache.cx, g_haloCache.cy), g_haloCache.radius, g_haloCache.radius),
+                    brush, std::max(2.0f, g_haloCache.radius * 0.025f));
 }
 
 void DrawSmoothAurora(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec) {
@@ -2232,15 +2169,11 @@ void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomL
     }
 
     for (const auto& ch : g_chunks) {
-        DrawItemShape(g_surface, cfg, ObjectKind::Snow, ch.x, ch.y, ch.size * 1.4f, 0.0f, 0.0f, ch.vx, 0.94f, 0);
+        DrawItemShape(g_surface, cfg, ObjectKind::ExtraSnow, ch.x, ch.y, ch.size * 1.4f, 0.0f, 0.0f, ch.vx, 0.94f, 0);
     }
 
     if (cfg.enableBottomAccumulation) {
         DrawSnowCapSurface(g_surface.rt, g_bottomSnowCap, bottomRelY, cfg.colorSnow, cfg.hasCustomSnowColor, s);
-
-        if (g_secretEgg.active) {
-            DrawSecretEasterEgg(g_surface.rt, g_surface.sharedBrush, g_secretEgg, bottomRelY);
-        }
 
         for (const auto& fo : g_fallen) {
             float drawY = bottomRelY + fo.relY;
@@ -2281,8 +2214,6 @@ void RenderWorkerLoop() {
     wc.lpszClassName = L"WindhawkDesktopWeatherOverlayClass";
     RegisterClassExW(&wc);
 
-    g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, LowLevelMouseProc, GetModuleHandleW(nullptr), 0);
-
     std::mt19937 rng(static_cast<unsigned>(GetTickCount64()));
     auto startTime = std::chrono::steady_clock::now();
     auto lastTime = startTime;
@@ -2291,6 +2222,7 @@ void RenderWorkerLoop() {
     POINT prevCursorPt = {};
     GetCursorPos(&prevCursorPt);
     bool hasPrevCursor = true;
+    bool prevLeftBtnDown = false;
 
     SeasonalMode prevSeasonalKind = SeasonalMode::Off;
     bool hasPrevSeasonalKind = false;
@@ -2371,10 +2303,14 @@ void RenderWorkerLoop() {
             else if (detected == SeasonalMode::Petals) { activeSeasonal = true; seasonalKind = ObjectKind::Petals; }
         }
 
+        bool extraSnowActive = activeSeasonal && (seasonalKind == ObjectKind::ExtraSnow);
+
         if (!hasPrevSeasonalKind || prevSeasonalKind != effectiveSeason) {
             hasPrevSeasonalKind = true;
             prevSeasonalKind = effectiveSeason;
-            ClearSeasonalArtifacts(seasonalKind);
+            OnSeasonalModeChanged(extraSnowActive);
+        } else if (!extraSnowActive && !g_bottomSnowballs.empty()) {
+            g_bottomSnowballs.clear();
         }
 
         auto resolveEffect = [&](TriStateMode mode, bool autoVal) -> bool {
@@ -2402,7 +2338,7 @@ void RenderWorkerLoop() {
 
         bool hasAnyState = activePrecip || activeSeasonal || anyFxActive ||
                            !g_falling.empty() || !g_fallen.empty() ||
-                           !g_bottomSnowballs.empty() || g_secretEgg.active || !g_chunks.empty();
+                           !g_bottomSnowballs.empty() || !g_chunks.empty();
         if (!hasAnyState) {
             if (g_overlayHwnd && IsWindowVisible(g_overlayHwnd)) {
                 ShowWindow(g_overlayHwnd, SW_HIDE);
@@ -2440,32 +2376,20 @@ void RenderWorkerLoop() {
             ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, true) * 1.2)
             : 0;
 
-        std::vector<FallingItem> nextFalling;
-        nextFalling.reserve(targetP + targetS);
-        size_t curP = 0, curS = 0;
-
-        for (const auto& item : g_falling) {
-            if (!item.isSeasonalLayer && activePrecip && item.kind == precipKind && curP < targetP) {
-                nextFalling.push_back(item);
-                ++curP;
-            } else if (item.isSeasonalLayer && activeSeasonal && item.kind == seasonalKind && curS < targetS) {
-                nextFalling.push_back(item);
-                ++curS;
+        // Обновляем g_falling in-place без пересоздания вектора на каждом кадре
+        size_t desiredCount = targetP + targetS;
+        size_t prevCount = g_falling.size();
+        if (g_falling.size() != desiredCount) {
+            g_falling.resize(desiredCount);
+        }
+        for (size_t i = 0; i < desiredCount; ++i) {
+            bool wantSeasonal = (i >= targetP);
+            ObjectKind wantKind = wantSeasonal ? seasonalKind : precipKind;
+            if (i >= prevCount || g_falling[i].isSeasonalLayer != wantSeasonal || g_falling[i].kind != wantKind) {
+                SpawnFallingItem(g_falling[i], rng, wantKind, wantSeasonal, cfg.particleScale,
+                                 wantSeasonal ? seasonalVx : precipVx, true);
             }
         }
-        while (curP < targetP) {
-            FallingItem it;
-            SpawnFallingItem(it, rng, precipKind, false, cfg.particleScale, precipVx, true);
-            nextFalling.push_back(it);
-            ++curP;
-        }
-        while (curS < targetS) {
-            FallingItem it;
-            SpawnFallingItem(it, rng, seasonalKind, true, cfg.particleScale, seasonalVx, true);
-            nextFalling.push_back(it);
-            ++curS;
-        }
-        g_falling.swap(nextFalling);
 
         int bottomLimitY = ComputeBottomLimitY(cfg);
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
@@ -2562,70 +2486,71 @@ void RenderWorkerLoop() {
             }
         }
 
-        if (g_clickRequested.exchange(false)) {
-            float clickX = static_cast<float>(g_clickScreenX.load() - g_canvasLeft);
-            float clickY = static_cast<float>(g_clickScreenY.load() - g_canvasTop);
-
-            if (!g_bottomSnowballs.empty()) {
-                std::vector<float> bx, by;
-                ComputeSnowballCenters(g_bottomSnowballs, bottomRelY, bx, by);
-                bool hitBall = false;
-                for (size_t i = 0; i < g_bottomSnowballs.size(); ++i) {
-                    if (std::hypot(clickX - bx[i], clickY - by[i]) <= g_bottomSnowballs[i].radius * 1.65f) {
-                        hitBall = true;
-                        break;
-                    }
-                }
-                if (hitBall) {
-                    for (size_t i = 0; i < g_bottomSnowballs.size(); ++i) {
-                        float dir = (i % 2 == 0) ? -1.0f : 1.0f;
-                        int count = std::clamp(static_cast<int>(g_bottomSnowballs[i].radius / 2.5f), 5, 16);
-                        for (int k = 0; k < count; ++k) {
-                            SpawnSnowChunk(
-                                bx[i] + static_cast<float>((rng() % 24) - 12),
-                                by[i] + static_cast<float>((rng() % 18) - 9),
-                                g_bottomSnowballs[i].radius * 0.45f,
-                                dir * (80.0f + static_cast<float>(rng() % 160)),
-                                -50.0f - static_cast<float>(rng() % 110),
-                                s);
-                        }
-                    }
-                    g_bottomSnowballs.clear();
-                }
-            }
-
-            if (g_secretEgg.active && std::hypot(clickX - g_secretEgg.x, clickY - (bottomRelY - 12.0f)) <= 36.0f) {
-                g_secretEgg.active = false;
-                g_secretEgg.progress = 0.0f;
-            }
-        }
-
         POINT cursorPt = {};
-        GetCursorPos(&cursorPt);
-        float cX = static_cast<float>(cursorPt.x - g_canvasLeft);
-        float cY = static_cast<float>(cursorPt.y - g_canvasTop);
-        float cDx = hasPrevCursor ? static_cast<float>(cursorPt.x - prevCursorPt.x) : 0.0f;
-        float cDy = hasPrevCursor ? static_cast<float>(cursorPt.y - prevCursorPt.y) : 0.0f;
-        prevCursorPt = cursorPt;
-        hasPrevCursor = true;
+        float cX = 0.0f, cY = 0.0f, cDx = 0.0f, cMoveLen = 0.0f;
+        bool needCursor = (cfg.cursorAction != CursorActionMode::None) || !g_bottomSnowballs.empty();
+        if (needCursor && GetCursorPos(&cursorPt)) {
+            cX = static_cast<float>(cursorPt.x - g_canvasLeft);
+            cY = static_cast<float>(cursorPt.y - g_canvasTop);
+            cDx = hasPrevCursor ? static_cast<float>(cursorPt.x - prevCursorPt.x) : 0.0f;
+            prevCursorPt = cursorPt;
+            hasPrevCursor = true;
+            cMoveLen = std::abs(cDx);
+        }
 
         float cRad = static_cast<float>(cfg.cursorRadiusPx);
-        float cMoveLen = std::hypot(cDx, cDy);
         float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
-        int secretThreshold = ComputeSecretThreshold(cfg);
 
-        int activeBallIdx = -1;
-        for (size_t i = 0; i < g_bottomSnowballs.size(); ++i) {
-            if (!g_bottomSnowballs[i].full) {
-                activeBallIdx = static_cast<int>(i);
-                break;
+        // Клик левой кнопкой по снеговику/шарам рассыпает его на комки (без глобального WH_MOUSE_LL хука)
+        bool leftBtnDown = !g_bottomSnowballs.empty() && ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0);
+        if (leftBtnDown && !prevLeftBtnDown) {
+            float bx[kMaxSnowmanBalls] = {};
+            float by[kMaxSnowmanBalls] = {};
+            size_t ballCount = 0;
+            ComputeSnowballCentersStack(g_bottomSnowballs, bottomRelY, bx, by, ballCount);
+
+            bool hitBall = false;
+            for (size_t i = 0; i < ballCount; ++i) {
+                float dx = cX - bx[i];
+                float dy = cY - by[i];
+                float hitR = g_bottomSnowballs[i].radius * 1.65f;
+                if (std::abs(dx) <= hitR && std::abs(dy) <= hitR && (dx * dx + dy * dy) <= hitR * hitR) {
+                    hitBall = true;
+                    break;
+                }
+            }
+            if (hitBall) {
+                for (size_t i = 0; i < ballCount; ++i) {
+                    float dir = (i % 2 == 0) ? -1.0f : 1.0f;
+                    int count = std::clamp(static_cast<int>(g_bottomSnowballs[i].radius / 2.5f), 5, 16);
+                    for (int k = 0; k < count; ++k) {
+                        SpawnSnowChunk(
+                            bx[i] + static_cast<float>((rng() % 24) - 12),
+                            by[i] + static_cast<float>((rng() % 18) - 9),
+                            g_bottomSnowballs[i].radius * 0.45f,
+                            dir * (80.0f + static_cast<float>(rng() % 160)),
+                            -50.0f - static_cast<float>(rng() % 110),
+                            s);
+                    }
+                }
+                g_bottomSnowballs.clear();
             }
         }
+        prevLeftBtnDown = leftBtnDown;
 
-        if (cfg.enableBottomAccumulation &&
-            (cfg.cursorAction == CursorActionMode::Secret || cfg.cursorAction == CursorActionMode::Clear) &&
+        // Лепка снеговика только из активного сезонного снега (extra_snow)
+        if (extraSnowActive && cfg.enableBottomAccumulation &&
+            cfg.cursorAction == CursorActionMode::Push &&
             cMoveLen > 0.5f && std::abs(cY - bottomRelY) < cRad && !g_bottomSnowCap.cols.empty()) {
-            float dirX = cDx / cMoveLen;
+            int activeBallIdx = -1;
+            for (size_t i = 0; i < g_bottomSnowballs.size(); ++i) {
+                if (!g_bottomSnowballs[i].full) {
+                    activeBallIdx = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            float dirX = (cDx >= 0.0f) ? 1.0f : -1.0f;
             int maxColIdx = static_cast<int>(g_bottomSnowCap.cols.size()) - 1;
             int from = std::clamp(static_cast<int>(cX - cRad * 0.6f), 0, maxColIdx);
             int to = std::clamp(static_cast<int>(cX + cRad * 0.6f), 0, maxColIdx);
@@ -2637,10 +2562,10 @@ void RenderWorkerLoop() {
                 }
             }
 
-            if (cfg.cursorAction == CursorActionMode::Secret && scooped > 1.5f) {
-                if (activeBallIdx < 0 && g_bottomSnowballs.size() < 3) {
+            if (scooped > 1.5f) {
+                if (activeBallIdx < 0 && g_bottomSnowballs.size() < kMaxSnowmanBalls) {
                     BottomSnowball sb;
-                    sb.kind = (precipKind == ObjectKind::ExtraSnow) ? ObjectKind::ExtraSnow : ObjectKind::Snow;
+                    sb.kind = ObjectKind::ExtraSnow;
                     sb.slot = static_cast<int>(g_bottomSnowballs.size());
                     sb.x = std::clamp(cX, maxBallR, std::max(maxBallR + 1.0f, static_cast<float>(g_canvasWidth) - maxBallR));
                     sb.vx = dirX * 55.0f;
@@ -2664,11 +2589,7 @@ void RenderWorkerLoop() {
             }
         }
 
-        int leafCount = 0;
-        int petalCount = 0;
-        float leafSumX = 0.0f;
-        float petalSumX = 0.0f;
-
+        // Легкая и чистая работа с опавшими листьями, лепестками, градом и лужами
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -2683,33 +2604,26 @@ void RenderWorkerLoop() {
                 }
             }
 
-            float absX = fo.relX;
-            float absY = bottomRelY + fo.relY;
-            float dist = std::hypot(absX - cX, absY - cY);
-
-            if (cfg.cursorAction == CursorActionMode::Clear && dist < cRad) {
-                g_fallen.erase(g_fallen.begin() + i);
-                continue;
-            }
-
-            bool isLeaf = (fo.kind == ObjectKind::AutumnLeaves);
-            bool isPetal = (fo.kind == ObjectKind::Petals);
-            bool isPuddle = (fo.kind == ObjectKind::Rain);
-
-            if (cfg.cursorAction == CursorActionMode::Push && !isPuddle && dist < cRad) {
-                float awaySign = (absX >= cX) ? 1.0f : -1.0f;
-                fo.vx += awaySign * 115.0f * (1.0f - dist / cRad) * dt;
-                fo.flip += awaySign * 1.8f * dt;
-            } else if (cfg.cursorAction == CursorActionMode::Secret && !isPuddle && dist < cRad) {
-                float weight = (1.0f - dist / cRad);
-                if (isLeaf) {
-                    float awaySign = (absX >= cX) ? 1.0f : -1.0f;
-                    fo.vx += awaySign * 95.0f * weight * dt;
-                    fo.flip += awaySign * 2.0f * dt;
-                } else if (isPetal) {
-                    float pullSign = (cX >= absX) ? 1.0f : -1.0f;
-                    fo.vx += pullSign * 85.0f * weight * dt;
-                    fo.flip += pullSign * 1.6f * dt;
+            if (cfg.cursorAction != CursorActionMode::None) {
+                float absX = fo.relX;
+                float absY = bottomRelY + fo.relY;
+                float dx = absX - cX;
+                float dy = absY - cY;
+                if (std::abs(dx) < cRad && std::abs(dy) < cRad) {
+                    float distSq = dx * dx + dy * dy;
+                    float radSq = cRad * cRad;
+                    if (distSq < radSq) {
+                        if (cfg.cursorAction == CursorActionMode::Clear) {
+                            g_fallen.erase(g_fallen.begin() + i);
+                            continue;
+                        }
+                        if (cfg.cursorAction == CursorActionMode::Push && fo.kind != ObjectKind::Rain) {
+                            float dist = std::sqrt(distSq);
+                            float awaySign = (dx >= 0.0f) ? 1.0f : -1.0f;
+                            fo.vx += awaySign * 115.0f * (1.0f - dist / cRad) * dt;
+                            fo.flip += awaySign * 1.8f * dt;
+                        }
+                    }
                 }
             }
 
@@ -2718,111 +2632,91 @@ void RenderWorkerLoop() {
                 fo.vx *= std::pow(0.08f, dt);
             }
 
-            if (isLeaf) {
-                ++leafCount;
-                leafSumX += fo.relX;
-            } else if (isPetal) {
-                ++petalCount;
-                petalSumX += fo.relX;
-            }
-
             ++i;
         }
 
-        if (cfg.enableBottomAccumulation && cfg.cursorAction == CursorActionMode::Secret) {
-            if (activeSeasonal && seasonalKind == ObjectKind::AutumnLeaves && leafCount >= secretThreshold) {
-                g_secretEgg.active = true;
-                g_secretEgg.kind = ObjectKind::AutumnLeaves;
-                g_secretEgg.x = std::clamp(leafSumX / std::max(1, leafCount), 32.0f, std::max(33.0f, static_cast<float>(g_canvasWidth) - 32.0f));
-                g_secretEgg.progress = std::min(1.0f, g_secretEgg.progress + dt * 1.8f);
-                g_secretEgg.phase += dt * 1.5f;
-            } else if (activeSeasonal && seasonalKind == ObjectKind::Petals && petalCount >= secretThreshold) {
-                g_secretEgg.active = true;
-                g_secretEgg.kind = ObjectKind::Petals;
-                g_secretEgg.x = std::clamp(petalSumX / std::max(1, petalCount), 32.0f, std::max(33.0f, static_cast<float>(g_canvasWidth) - 32.0f));
-                g_secretEgg.progress = std::min(1.0f, g_secretEgg.progress + dt * 1.8f);
-                g_secretEgg.phase += dt * 1.2f;
-            } else if (g_secretEgg.active) {
-                g_secretEgg.progress = std::max(0.0f, g_secretEgg.progress - dt * 2.0f);
-                if (g_secretEgg.progress <= 0.01f) g_secretEgg.active = false;
-            }
-        } else if (g_secretEgg.active) {
-            g_secretEgg.progress = std::max(0.0f, g_secretEgg.progress - dt * 2.5f);
-            if (g_secretEgg.progress <= 0.01f) g_secretEgg.active = false;
-        }
+        // Обновление шаров снеговика (только при активном сезонном снеге)
+        if (extraSnowActive && !g_bottomSnowballs.empty()) {
+            float bx[kMaxSnowmanBalls] = {};
+            float by[kMaxSnowmanBalls] = {};
+            size_t ballCount = 0;
+            ComputeSnowballCentersStack(g_bottomSnowballs, bottomRelY, bx, by, ballCount);
 
-        std::vector<float> bx, by;
-        ComputeSnowballCenters(g_bottomSnowballs, bottomRelY, bx, by);
+            for (size_t i = 0; i < g_bottomSnowballs.size();) {
+                BottomSnowball& sb = g_bottomSnowballs[i];
+                sb.ageSec += dt;
 
-        for (size_t i = 0; i < g_bottomSnowballs.size();) {
-            BottomSnowball& sb = g_bottomSnowballs[i];
-            sb.ageSec += dt;
-
-            double lifeMin = GetLifetimeMinForKind(cfg, sb.isSeasonalLayer);
-            if (lifeMin >= 0.0 && sb.ageSec >= lifeMin * 60.0) {
-                sb.alpha -= dt * 1.5f;
-                if (sb.alpha <= 0.03f) {
-                    g_bottomSnowballs.erase(g_bottomSnowballs.begin() + i);
-                    continue;
-                }
-            }
-
-            if (sb.lift > 0.0f || sb.liftVel != 0.0f) {
-                sb.liftVel += (-260.0f * sb.lift - 18.0f * sb.liftVel) * dt;
-                sb.lift = std::max(0.0f, sb.lift + sb.liftVel * dt);
-                if (sb.lift <= 0.01f && std::abs(sb.liftVel) < 0.5f) {
-                    sb.lift = 0.0f;
-                    sb.liftVel = 0.0f;
-                }
-            }
-
-            if (sb.squash != 0.0f || sb.squashVel != 0.0f) {
-                sb.squashVel += (-220.0f * sb.squash - 16.0f * sb.squashVel) * dt;
-                sb.squash = std::clamp(sb.squash + sb.squashVel * dt, -0.35f, 0.35f);
-                if (std::abs(sb.squash) < 0.002f && std::abs(sb.squashVel) < 0.02f) {
-                    sb.squash = 0.0f;
-                    sb.squashVel = 0.0f;
-                }
-            }
-
-            float curX = bx[i];
-            float curY = by[i];
-            float dist = std::hypot(curX - cX, curY - cY);
-
-            if (cfg.cursorAction == CursorActionMode::Push && dist < cRad + sb.radius) {
-                float awaySign = (curX >= cX) ? 1.0f : -1.0f;
-                sb.vx += awaySign * 55.0f * dt;
-                sb.squashVel -= 0.45f * dt * 12.0f;
-            } else if (cfg.cursorAction == CursorActionMode::Secret && dist < cRad + sb.radius && cMoveLen > 0.5f) {
-                float moveFactor = (sb.slot == 0) ? 75.0f : 185.0f;
-                sb.vx += (cDx / cMoveLen) * moveFactor * dt;
-            }
-
-            if (i > 0 && sb.stacked) {
-                float targetX = g_bottomSnowballs[i - 1].x;
-                sb.x += (targetX - sb.x) * std::min(1.0f, dt * 12.0f);
-            } else {
-                sb.x = std::clamp(sb.x + sb.vx * dt, sb.radius, std::max(sb.radius + 1.0f, static_cast<float>(g_canvasWidth) - sb.radius));
-            }
-            sb.vx *= std::pow(0.10f, dt);
-
-            if (i > 0 && !sb.stacked) {
-                const BottomSnowball& lower = g_bottomSnowballs[i - 1];
-                float magnetRange = lower.radius * 2.2f + sb.radius;
-                float deltaX = lower.x - sb.x;
-                if (std::abs(deltaX) <= magnetRange) {
-                    sb.x += deltaX * std::min(1.0f, dt * 8.0f);
-                    if (std::abs(lower.x - sb.x) <= lower.radius * 1.15f) {
-                        sb.stacked = true;
-                        sb.x = lower.x;
-                        sb.vx = 0.0f;
-                        sb.liftVel = 155.0f;
-                        sb.squashVel -= 0.85f;
+                double lifeMin = GetLifetimeMinForKind(cfg, true);
+                if (lifeMin >= 0.0 && sb.ageSec >= lifeMin * 60.0) {
+                    sb.alpha -= dt * 1.5f;
+                    if (sb.alpha <= 0.03f) {
+                        g_bottomSnowballs.erase(g_bottomSnowballs.begin() + i);
+                        continue;
                     }
                 }
-            }
 
-            ++i;
+                if (sb.lift > 0.0f || sb.liftVel != 0.0f) {
+                    sb.liftVel += (-260.0f * sb.lift - 18.0f * sb.liftVel) * dt;
+                    sb.lift = std::max(0.0f, sb.lift + sb.liftVel * dt);
+                    if (sb.lift <= 0.01f && std::abs(sb.liftVel) < 0.5f) {
+                        sb.lift = 0.0f;
+                        sb.liftVel = 0.0f;
+                    }
+                }
+
+                if (sb.squash != 0.0f || sb.squashVel != 0.0f) {
+                    sb.squashVel += (-220.0f * sb.squash - 16.0f * sb.squashVel) * dt;
+                    sb.squash = std::clamp(sb.squash + sb.squashVel * dt, -0.35f, 0.35f);
+                    if (std::abs(sb.squash) < 0.002f && std::abs(sb.squashVel) < 0.02f) {
+                        sb.squash = 0.0f;
+                        sb.squashVel = 0.0f;
+                    }
+                }
+
+                float curX = bx[i];
+                float curY = by[i];
+                float dx = curX - cX;
+                float dy = curY - cY;
+                float reach = cRad + sb.radius;
+
+                if (cfg.cursorAction == CursorActionMode::Push &&
+                    std::abs(dx) < reach && std::abs(dy) < reach &&
+                    (dx * dx + dy * dy) < reach * reach) {
+                    if (cMoveLen > 0.5f) {
+                        float moveFactor = (sb.slot == 0) ? 75.0f : 185.0f;
+                        sb.vx += (cDx / cMoveLen) * moveFactor * dt;
+                    } else {
+                        float awaySign = (dx >= 0.0f) ? 1.0f : -1.0f;
+                        sb.vx += awaySign * 55.0f * dt;
+                    }
+                }
+
+                if (i > 0 && sb.stacked) {
+                    float targetX = g_bottomSnowballs[i - 1].x;
+                    sb.x += (targetX - sb.x) * std::min(1.0f, dt * 12.0f);
+                } else {
+                    sb.x = std::clamp(sb.x + sb.vx * dt, sb.radius, std::max(sb.radius + 1.0f, static_cast<float>(g_canvasWidth) - sb.radius));
+                }
+                sb.vx *= std::pow(0.10f, dt);
+
+                if (i > 0 && !sb.stacked) {
+                    const BottomSnowball& lower = g_bottomSnowballs[i - 1];
+                    float magnetRange = lower.radius * 2.2f + sb.radius;
+                    float deltaX = lower.x - sb.x;
+                    if (std::abs(deltaX) <= magnetRange) {
+                        sb.x += deltaX * std::min(1.0f, dt * 8.0f);
+                        if (std::abs(lower.x - sb.x) <= lower.radius * 1.15f) {
+                            sb.stacked = true;
+                            sb.x = lower.x;
+                            sb.vx = 0.0f;
+                            sb.liftVel = 155.0f;
+                            sb.squashVel -= 0.85f;
+                        }
+                    }
+                }
+
+                ++i;
+            }
         }
 
         RenderFrame(cfg, activeFx, bottomLimitY, precipVx, timeSec);
@@ -2831,10 +2725,6 @@ void RenderWorkerLoop() {
         std::this_thread::sleep_for(std::chrono::milliseconds(frameMs));
     }
 
-    if (g_mouseHook) {
-        UnhookWindowsHookEx(g_mouseHook);
-        g_mouseHook = nullptr;
-    }
     if (g_overlayHwnd) {
         DestroyWindow(g_overlayHwnd);
         g_overlayHwnd = nullptr;
