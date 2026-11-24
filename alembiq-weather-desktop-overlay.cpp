@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.6.5
+// @version         0.7.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -46,12 +46,12 @@
   $description: "Comma-separated executable names (kept for compatibility). Default: obs64.exe, ApplicationFrameHost.exe."
 - cursorAction: clear
   $name: "[System] Cursor action"
-  $description: "none = ignore cursor; clear = erase fallen items on touch (snowballs/snowman & leaf/petal piles scattered by click); push = gently scatter/push without merging; gather = roll snowballs into snowman, blow leaves into heavy pile, pull petals into pile."
+  $description: "none = ignore cursor; clear = erase fallen items on touch (snowballs/snowman & leaf/petal piles scattered by click); push = gently scatter/push without merging; gather = roll snowballs into snowman, blow leaves into heavy pile, gather petals into growing even pile."
   $options:
     - none: None (ignore cursor)
     - clear: Clear (erase fallen items; click scatters snowballs/snowman & piles)
     - push: Push (gently scatter/push without merging)
-    - gather: Gather (roll snowballs -> snowman, blow leaves, pull petals)
+    - gather: Gather (roll snowballs -> snowman, blow leaves, gather petals)
 - cursorRadiusPx: 95
   $name: "[System] Cursor radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
@@ -333,7 +333,7 @@ constexpr float kGravity = 2200.0f;
 constexpr float kCapEdgeTaper = 8.0f;
 constexpr float kSnowKernel[] = {0.10f, 0.25f, 0.50f, 0.80f, 1.00f, 0.80f, 0.50f, 0.25f, 0.10f};
 constexpr float kSnowKernelSum = 4.30f;
-constexpr size_t kMaxPileVisualMembers = 56;
+constexpr size_t kMaxPileVisualMembers = 64;
 
 enum class ObjectKind {
     Rain,
@@ -559,7 +559,7 @@ struct FallenItem {
 struct BottomSnowball {
     ObjectKind kind = ObjectKind::Snow;
     bool isSeasonalLayer = false;
-    int slot = 0; // 0 = база, 1 = тело (руки + пуговица), 2 = голова (глаза + морковка)
+    int slot = 0;
     float x = 0.0f;
     float vx = 0.0f;
     float radius = 8.0f;
@@ -589,7 +589,7 @@ struct BottomFoliagePile {
     bool isSeasonalLayer = false;
     float centerX = 0.0f;
     float vx = 0.0f;
-    float halfWidth = 48.0f;
+    float halfWidth = 44.0f;
     float height = 10.0f;
     float ageSec = 0.0f;
     float dogPhase = 0.0f;
@@ -1084,7 +1084,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/1.6", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/1.7", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -1891,14 +1891,13 @@ void DrawBottomPileShape(CachedSurface& surf, const Settings& cfg,
     ID2D1SolidColorBrush* brush = surf.sharedBrush;
     D2D1_COLOR_F baseCol = GetColorForKind(cfg, pile.kind);
 
-    // Плотная многослойная заливка основания кучи без «дырок»
-    brush->SetColor(D2D1::ColorF(baseCol.r * 0.85f, baseCol.g * 0.82f, baseCol.b * 0.78f, 0.62f));
+    brush->SetColor(D2D1::ColorF(baseCol.r * 0.88f, baseCol.g * 0.84f, baseCol.b * 0.80f, 0.62f));
     brush->SetOpacity(0.62f);
     surf.rt->FillEllipse(
         D2D1::Ellipse(
-            D2D1::Point2F(pile.centerX, bottomRelY - pile.height * 0.24f),
-            pile.halfWidth * 1.06f,
-            std::max(6.0f, pile.height * 0.54f)),
+            D2D1::Point2F(pile.centerX, bottomRelY - pile.height * 0.25f),
+            pile.halfWidth * 1.05f,
+            std::max(6.0f, pile.height * 0.52f)),
         brush);
 
     brush->SetColor(D2D1::ColorF(baseCol.r, baseCol.g, baseCol.b, 0.50f));
@@ -1907,7 +1906,7 @@ void DrawBottomPileShape(CachedSurface& surf, const Settings& cfg,
         D2D1::Ellipse(
             D2D1::Point2F(pile.centerX, bottomRelY - pile.height * 0.42f),
             pile.halfWidth * 0.84f,
-            std::max(5.0f, pile.height * 0.42f)),
+            std::max(5.0f, pile.height * 0.40f)),
         brush);
 
     for (const auto& m : pile.members) {
@@ -1939,11 +1938,24 @@ void DrawBottomPileShape(CachedSurface& surf, const Settings& cfg,
 void AddItemToBottomPile(BottomFoliagePile& pile, float itemX, float itemSize, float itemAngle,
                          float itemFlip, float itemAlpha, int shadeIdx, float maxPileH, std::mt19937& rng) {
     pile.totalCount++;
-    pile.halfWidth = std::min(88.0f, 46.0f + pile.totalCount * 0.45f);
 
-    float offsetX = std::clamp(itemX - pile.centerX, -pile.halfWidth * 0.90f, pile.halfWidth * 0.90f);
+    // Рост ширины и высоты кучи по мере накопления массы (с акцентом на равномерный рост для лепестков)
+    float widthGrowth = (pile.kind == ObjectKind::Petals) ? 0.95f : 0.45f;
+    pile.halfWidth = std::min(125.0f, 38.0f + pile.totalCount * widthGrowth);
+
+    float offsetX;
+    if (pile.kind == ObjectKind::Petals) {
+        // Равномерное распределение лепестков по ширине кучи
+        float t = static_cast<float>((rng() % 2001) - 1000) / 1000.0f;
+        offsetX = t * pile.halfWidth * 0.88f;
+    } else {
+        offsetX = std::clamp(itemX - pile.centerX, -pile.halfWidth * 0.90f, pile.halfWidth * 0.90f);
+    }
+
     float normX = std::abs(offsetX) / std::max(1.0f, pile.halfWidth);
-    float domeFactor = std::max(0.30f, 1.0f - normX * normX);
+    float domeFactor = (pile.kind == ObjectKind::Petals)
+        ? std::max(0.55f, 1.0f - 0.45f * normX * normX)
+        : std::max(0.30f, 1.0f - normX * normX);
 
     int layerIdx = pile.totalCount / 4;
     float lift = std::min(maxPileH, (layerIdx + 1) * (itemSize * 0.36f) * domeFactor);
@@ -1951,11 +1963,11 @@ void AddItemToBottomPile(BottomFoliagePile& pile, float itemX, float itemSize, f
 
     PileMember pm;
     pm.baseLayer = (lift < maxPileH * 0.48f);
-    pm.dx = offsetX + static_cast<float>((rng() % 8) - 4) * 0.35f;
+    pm.dx = offsetX + static_cast<float>((rng() % 6) - 3) * 0.25f;
     pm.dy = -itemSize * 0.32f - lift;
     pm.size = std::max(itemSize, 7.5f);
     pm.angle = itemAngle + static_cast<float>((rng() % 40) - 20) * 0.01f;
-    pm.flip = itemFlip;
+    pm.flip = (pile.kind == ObjectKind::Petals) ? 0.55f : itemFlip;
     pm.alpha = itemAlpha;
     pm.shadeIdx = shadeIdx;
 
@@ -2240,7 +2252,6 @@ void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomL
 
     float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
     float s = static_cast<float>(cfg.particleScale);
-    float maxPileH = static_cast<float>(cfg.leafPileMaxHeightPx);
     int easterEggThreshold = ComputePileEasterEggThreshold(cfg);
 
     RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
@@ -2629,7 +2640,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Клик по снеговику/шарам или куче листьев/лепестков -> рассыпаются в стороны на отдельные элементы
         if (g_clickRequested.exchange(false)) {
             float clickX = static_cast<float>(g_clickScreenX.load() - g_canvasLeft);
             float clickY = static_cast<float>(g_clickScreenY.load() - g_canvasTop);
@@ -2705,7 +2715,6 @@ void RenderWorkerLoop() {
         float maxBallR = static_cast<float>(cfg.snowballMaxRadiusPx);
         float maxLeafPileH = static_cast<float>(cfg.leafPileMaxHeightPx);
 
-        // Активный снежный шар (первый незаполненный; когда 1-й заполнен — 2-й; затем 3-й)
         int activeBallIdx = -1;
         for (size_t i = 0; i < g_bottomSnowballs.size(); ++i) {
             if (!g_bottomSnowballs[i].full) {
@@ -2714,7 +2723,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Формирование шаров снеговика из нижнего сугроба (в режиме Gather или Clear)
         if (cfg.enableBottomAccumulation &&
             (cfg.cursorAction == CursorActionMode::Gather || cfg.cursorAction == CursorActionMode::Clear) &&
             cMoveLen > 0.5f && std::abs(cY - bottomRelY) < cRad && !g_bottomSnowCap.cols.empty()) {
@@ -2757,7 +2765,7 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Обновление отдельных опавших объектов (листья сдуваются от курсора, лепестки подтягиваются к курсору)
+        // Обновление отдельных опавших объектов: листья сдуваются в кучу, лепестки подтягиваются в равномерную растущую кучу
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -2792,44 +2800,49 @@ void RenderWorkerLoop() {
                 fo.flip += awaySign * 2.0f * dt;
             } else if (cfg.cursorAction == CursorActionMode::Gather && !isPuddle && dist < cRad) {
                 float weight = (1.0f - dist / cRad);
-                if (isLeaf && cMoveLen > 0.4f) {
-                    // Листья сдуваются в сторону от курсора (и в направлении движения)
+                if (isLeaf && cMoveLen > 0.35f) {
                     float awaySign = (absX >= cX) ? 1.0f : -1.0f;
-                    float blowX = awaySign * 140.0f + (cDx / cMoveLen) * 110.0f;
+                    float blowX = awaySign * 145.0f + (cDx / cMoveLen) * 105.0f;
                     fo.relX = std::clamp(fo.relX + blowX * weight * dt, 0.0f, static_cast<float>(g_canvasWidth));
                     fo.flip += awaySign * 3.0f * dt;
 
-                    // Если лист насыпался поверх уже существующей кучи листьев — уплотняется в нее
-                    if (g_hasBottomPile && g_bottomPile.kind == ObjectKind::AutumnLeaves &&
-                        std::abs(fo.relX - g_bottomPile.centerX) <= g_bottomPile.halfWidth * 0.95f) {
+                    // При сдувании листья собираются в кучу рядом с точкой сдувания или на существующей куче
+                    if (!g_hasBottomPile) {
+                        g_bottomPile = BottomFoliagePile{};
+                        g_bottomPile.kind = ObjectKind::AutumnLeaves;
+                        g_bottomPile.isSeasonalLayer = fo.isSeasonalLayer;
+                        g_bottomPile.centerX = std::clamp(fo.relX + awaySign * 24.0f, 44.0f, std::max(45.0f, static_cast<float>(g_canvasWidth) - 44.0f));
+                        g_bottomPile.halfWidth = 44.0f;
+                        g_bottomPile.height = fo.size * 0.6f;
+                        g_hasBottomPile = true;
+                    }
+                    if (g_bottomPile.kind == ObjectKind::AutumnLeaves &&
+                        std::abs(fo.relX - g_bottomPile.centerX) <= g_bottomPile.halfWidth + 28.0f) {
                         AddItemToBottomPile(g_bottomPile, fo.relX, fo.size, fo.angle, fo.flip, fo.alpha, fo.shadeIdx, maxLeafPileH, rng);
-                        g_bottomPile.vx += (blowX * 0.06f);
                         g_fallen.erase(g_fallen.begin() + i);
                         continue;
                     }
                 } else if (isPetal) {
-                    // Лепестки подтягиваются к курсору в нижней зоне
                     float pullSign = (cX >= absX) ? 1.0f : -1.0f;
-                    float pullForce = pullSign * 175.0f * weight * dt;
+                    float pullForce = pullSign * 165.0f * weight * dt;
                     fo.relX = std::clamp(fo.relX + pullForce, 0.0f, static_cast<float>(g_canvasWidth));
-                    fo.flip += pullSign * 2.4f * dt;
+                    fo.flip += pullSign * 2.2f * dt;
 
-                    if (std::abs(fo.relX - cX) < 18.0f && cMoveLen > 0.4f) {
+                    if (std::abs(fo.relX - cX) < 22.0f && cMoveLen > 0.35f) {
                         if (!g_hasBottomPile) {
                             g_bottomPile = BottomFoliagePile{};
                             g_bottomPile.kind = ObjectKind::Petals;
                             g_bottomPile.isSeasonalLayer = fo.isSeasonalLayer;
-                            g_bottomPile.centerX = fo.relX;
-                            g_bottomPile.halfWidth = 46.0f;
+                            g_bottomPile.centerX = std::clamp(cX, 42.0f, std::max(43.0f, static_cast<float>(g_canvasWidth) - 42.0f));
+                            g_bottomPile.halfWidth = 38.0f;
                             g_bottomPile.height = fo.size * 0.6f;
                             g_hasBottomPile = true;
                         }
-                        g_bottomPile.kind = ObjectKind::Petals;
-                        g_bottomPile.isSeasonalLayer = fo.isSeasonalLayer;
-                        AddItemToBottomPile(g_bottomPile, fo.relX, fo.size, fo.angle, fo.flip, fo.alpha, fo.shadeIdx, maxLeafPileH, rng);
-                        g_bottomPile.vx += (cDx / cMoveLen) * 18.0f;
-                        g_fallen.erase(g_fallen.begin() + i);
-                        continue;
+                        if (g_bottomPile.kind == ObjectKind::Petals) {
+                            AddItemToBottomPile(g_bottomPile, fo.relX, fo.size, fo.angle, fo.flip, fo.alpha, fo.shadeIdx, maxLeafPileH, rng);
+                            g_fallen.erase(g_fallen.begin() + i);
+                            continue;
+                        }
                     }
                 }
             }
@@ -2850,7 +2863,7 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление тяжелой медленной кучи внизу экрана (1 куча)
+        // Обновление кучи внизу экрана: куча лепестков почти не таскается за курсором, куча листьев тяжелая и медленная
         if (g_hasBottomPile) {
             g_bottomPile.ageSec += dt;
             g_bottomPile.dogPhase += dt * 1.35f;
@@ -2867,30 +2880,26 @@ void RenderWorkerLoop() {
 
             if (g_hasBottomPile) {
                 float dist = std::hypot(g_bottomPile.centerX - cX, (bottomRelY - g_bottomPile.height * 0.3f) - cY);
-                // Масса делает кучу тяжелой и очень медленно перемещающейся
-                float massDrag = 1.0f / (1.0f + g_bottomPile.totalCount * 0.08f);
+                float massDrag = 1.0f / (1.0f + g_bottomPile.totalCount * 0.10f);
                 if (cfg.cursorAction == CursorActionMode::Push && dist < cRad + g_bottomPile.halfWidth * 0.4f) {
                     float awaySign = (g_bottomPile.centerX >= cX) ? 1.0f : -1.0f;
-                    g_bottomPile.vx += awaySign * 22.0f * massDrag * dt;
+                    g_bottomPile.vx += awaySign * 18.0f * massDrag * dt;
                     g_bottomPile.height = std::max(8.0f, g_bottomPile.height - 10.0f * dt);
-                } else if (cfg.cursorAction == CursorActionMode::Gather && dist < cRad + g_bottomPile.halfWidth * 0.5f && cMoveLen > 0.5f) {
+                } else if (cfg.cursorAction == CursorActionMode::Gather && dist < cRad + g_bottomPile.halfWidth * 0.4f && cMoveLen > 0.5f) {
                     if (g_bottomPile.kind == ObjectKind::AutumnLeaves) {
                         float awaySign = (g_bottomPile.centerX >= cX) ? 1.0f : -1.0f;
-                        g_bottomPile.vx += awaySign * 36.0f * massDrag * dt;
-                    } else if (g_bottomPile.kind == ObjectKind::Petals) {
-                        float pullSign = (cX >= g_bottomPile.centerX) ? 1.0f : -1.0f;
-                        g_bottomPile.vx += pullSign * 38.0f * massDrag * dt;
+                        g_bottomPile.vx += awaySign * 28.0f * massDrag * dt;
                     }
                 }
                 g_bottomPile.centerX = std::clamp(
                     g_bottomPile.centerX + g_bottomPile.vx * dt,
                     g_bottomPile.halfWidth * 0.5f,
                     std::max(g_bottomPile.halfWidth * 0.5f, static_cast<float>(g_canvasWidth) - g_bottomPile.halfWidth * 0.5f));
-                g_bottomPile.vx *= std::pow(0.03f, dt);
+                g_bottomPile.vx *= std::pow(0.02f, dt);
             }
         }
 
-        // Обновление до 3 нижних шаров и магнитная сборка снеговика без "догонялок"
+        // Обновление до 3 нижних шаров и магнитная сборка снеговика
         std::vector<float> bx, by;
         ComputeSnowballCenters(g_bottomSnowballs, bottomRelY, bx, by);
 
@@ -2934,7 +2943,6 @@ void RenderWorkerLoop() {
                 sb.vx += awaySign * 55.0f * dt;
                 sb.squashVel -= 0.45f * dt * 12.0f;
             } else if (cfg.cursorAction == CursorActionMode::Gather && dist < cRad + sb.radius && cMoveLen > 0.5f) {
-                // Базовый шар (slot 0) держится спокойнее, чтобы не убегал от курсора при сборке
                 float moveFactor = (sb.slot == 0) ? 75.0f : 185.0f;
                 sb.vx += (cDx / cMoveLen) * moveFactor * dt;
             }
@@ -2947,7 +2955,6 @@ void RenderWorkerLoop() {
             }
             sb.vx *= std::pow(0.10f, dt);
 
-            // Магнитная зона посадки: при приближении к предыдущему шару шар плавно притягивается и запрыгивает наверх
             if (i > 0 && !sb.stacked) {
                 const BottomSnowball& lower = g_bottomSnowballs[i - 1];
                 float magnetRange = lower.radius * 2.2f + sb.radius;
