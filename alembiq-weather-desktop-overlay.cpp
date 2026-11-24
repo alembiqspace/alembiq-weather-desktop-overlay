@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         1.3.2
+// @version         1.4.0
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -63,11 +63,11 @@ A lightweight **Direct2D** weather and seasonal particle overlay for the Windows
   $description: "Comma-separated executable names (kept for compatibility). Default: obs64.exe, ApplicationFrameHost.exe."
 - cursorAction: clear
   $name: "[System] Cursor action"
-  $description: "none = ignore cursor; clear = erase fallen items on touch (extra-snow snowman scattered by click); push = builds extra-snow snowman until assembled, then pushes/scatters particles."
+  $description: "none = ignore cursor; clear = erase settled items on touch; push = gently nudge or interact with settled items."
   $options:
     - none: None (ignore cursor)
-    - clear: Clear (erase fallen items; click scatters snowman)
-    - push: Push (assemble snowman, then push/scatter)
+    - clear: Clear (erase settled items on touch)
+    - push: Push (gently nudge settled items)
 - cursorRadiusPx: 95
   $name: "[System] Cursor radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
@@ -264,7 +264,7 @@ A lightweight **Direct2D** weather and seasonal particle overlay for the Windows
 # --- 7. SNOWBALLS & SCALE ---
 - snowballMaxRadiusPx: 34
   $name: "[Snowballs] Max radius (px)"
-  $description: "Max radius of each of up to 3 snowman balls built only from seasonal snow (extra_snow) at bottom (8 to 120). Invalid/out-of-range resets to 34."
+  $description: "Max radius for bottom seasonal snow formations (8 to 120). Invalid/out-of-range resets to 34."
 - particleScale: "1.0"
   $name: "[Objects] Size scale"
   $description: "Size multiplier for falling and fallen objects (0.3 to 4.0). Invalid resets to 1.0."
