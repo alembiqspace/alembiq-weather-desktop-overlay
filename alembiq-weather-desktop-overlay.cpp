@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.4.0
+// @version         0.4.1
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -351,20 +351,20 @@
 # --- 7. CURSOR, PILES, SNOWBALLS & WINDOW PHYSICS ---
 - cursorAction: clear
   $name: "[Cursor] Action on fallen objects"
-  $description: "Affects fallen objects only. clear = erase on touch (default); move = gather snow into snowballs & leaves into mounds; none = ignore cursor."
+  $description: "Affects fallen objects only. clear = erase on touch (default); move = roll snowballs & gather unified leaf/petal piles; none = ignore cursor."
   $options:
     - clear: Clear (erase on touch)
-    - move: Move (snowballs & leaf piles)
+    - move: Move (snowballs & leaf/petal piles)
     - none: None (ignore cursor)
 - cursorRadiusPx: 95
   $name: "[Cursor] Radius (px)"
   $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
 - snowballMaxRadiusPx: 34
   $name: "[Snowballs] Max radius (px)"
-  $description: "Maximum radius of rolled snowballs in pixels (8 to 120). Invalid/out-of-range resets to 34."
+  $description: "Maximum radius of snowballs grown by absorbing lying snowflakes (8 to 120). Invalid/out-of-range resets to 34."
 - leafPileMaxHeightPx: 54
-  $name: "[Leaf Piles] Max height (px)"
-  $description: "Maximum height of gathered autumn leaf mounds in pixels (8 to 250). Invalid/out-of-range resets to 54."
+  $name: "[Foliage Piles] Max height (px)"
+  $description: "Maximum height of unified leaf/petal mounds in pixels (8 to 250). Invalid/out-of-range resets to 54."
 - windowShakeSensitivity: 55
   $name: "[Windows] Shed sensitivity (1..100)"
   $description: "Sensitivity for detaching fallen items/snowballs when moving windows (1..100). Invalid/out-of-range resets to 55."
@@ -635,6 +635,28 @@ struct Snowball {
     bool fallingOff = false;
 };
 
+struct PileMember {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    float size = 8.0f;
+    float angle = 0.0f;
+    float alpha = 0.92f;
+};
+
+struct FoliagePile {
+    ObjectKind kind = ObjectKind::AutumnLeaves;
+    bool isSeasonalLayer = false;
+    bool onWindow = false;
+    HWND hostWindow = nullptr;
+    float centerX = 0.0f;
+    float baseY = 0.0f;
+    float vx = 0.0f;
+    float halfWidth = 34.0f;
+    float height = 10.0f;
+    float ageSec = 0.0f;
+    std::vector<PileMember> members;
+};
+
 struct LightningFlash {
     float timer = 0.0f;
     float xStart = 0.0f;
@@ -684,6 +706,7 @@ int g_canvasHeight = 0;
 std::vector<FallingItem> g_falling;
 std::vector<FallenItem> g_fallen;
 std::vector<Snowball> g_snowballs;
+std::vector<FoliagePile> g_piles;
 LightningFlash g_lightning;
 std::unordered_map<HWND, WindowMotion> g_windows;
 
@@ -1010,7 +1033,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.6", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.7", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -1074,7 +1097,6 @@ void ApplyForecastMetrics(int code, double windKmh, double tempC, int cloudCover
         precipKind = ObjectKind::Rain;
     }
 
-    // Косвенные эффекты по метеопараметрам
     if (!hasPrecip && !isStormCode && windKmh >= 28.0 && (visibilityM <= 0.0 || visibilityM < 8000.0)) {
         fx.dust = true;
     }
@@ -1443,12 +1465,10 @@ void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, boo
         item.x = xDist(rng);
         item.y = yDist(rng);
     } else if (vx < -25.0f && ((rng() % 100) < 35)) {
-        // Косой ветер влево -> спавн с правого края
         std::uniform_real_distribution<float> ySide(0.0f, static_cast<float>(g_canvasHeight) * 0.75f);
         item.x = static_cast<float>(g_canvasWidth) + 20.0f;
         item.y = ySide(rng);
     } else if (vx > 25.0f && ((rng() % 100) < 35)) {
-        // Косой ветер вправо -> спавн с левого края
         std::uniform_real_distribution<float> ySide(0.0f, static_cast<float>(g_canvasHeight) * 0.75f);
         item.x = -20.0f;
         item.y = ySide(rng);
@@ -1478,7 +1498,6 @@ void SpawnFallingItem(FallingItem& item, std::mt19937& rng, ObjectKind kind, boo
 }
 
 void DrawMapleLeaf(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float x, float y, float r) {
-    // 5-лопастный кленовый силуэт
     D2D1_POINT_2F pts[10] = {
         {x, y - r},
         {x + r * 0.30f, y - r * 0.42f},
@@ -1529,6 +1548,51 @@ void DrawRainPuddle(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, float 
     float width = std::max(8.0f, size * 1.4f);
     float height = 2.0f;
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), width * 0.5f, height * 0.5f), brush);
+}
+
+void DrawFoliagePileShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
+                          const FoliagePile& pile, float drawCenterX, float drawBaseY) {
+    // Мягкий профиль холмика у основания кучи
+    D2D1_COLOR_F baseCol = brush->GetColor();
+    baseCol.a = 0.24f;
+    ID2D1SolidColorBrush* moundBrush = nullptr;
+    if (SUCCEEDED(rt->CreateSolidColorBrush(baseCol, &moundBrush)) && moundBrush) {
+        rt->FillEllipse(
+            D2D1::Ellipse(
+                D2D1::Point2F(drawCenterX, drawBaseY - pile.height * 0.28f),
+                pile.halfWidth,
+                std::max(4.0f, pile.height * 0.45f)),
+            moundBrush);
+        moundBrush->Release();
+    }
+
+    for (const auto& m : pile.members) {
+        DrawItemShape(rt, brush, pile.kind, drawCenterX + m.dx, drawBaseY + m.dy, m.size, m.angle, 0.0f, m.alpha);
+    }
+}
+
+void AddItemToFoliagePile(FoliagePile& pile, float itemAbsX, float itemSize, float itemAngle,
+                          float itemAlpha, float maxPileH, std::mt19937& rng) {
+    float offsetX = std::clamp(itemAbsX - pile.centerX, -pile.halfWidth * 0.85f, pile.halfWidth * 0.85f);
+    float normX = std::abs(offsetX) / std::max(1.0f, pile.halfWidth);
+    float domeFactor = std::max(0.25f, 1.0f - normX * normX);
+
+    int layerIdx = static_cast<int>(pile.members.size()) / 5;
+    float lift = std::min(maxPileH, (layerIdx + 1) * (itemSize * 0.42f) * domeFactor);
+    pile.height = std::max(pile.height, lift);
+
+    PileMember pm;
+    pm.dx = offsetX + static_cast<float>((rng() % 10) - 5) * 0.4f;
+    pm.dy = -itemSize * 0.35f - lift;
+    pm.size = itemSize;
+    pm.angle = itemAngle + static_cast<float>((rng() % 40) - 20) * 0.01f;
+    pm.alpha = itemAlpha;
+
+    if (pile.members.size() < 48) {
+        pile.members.push_back(pm);
+    } else {
+        pile.members[rng() % pile.members.size()] = pm;
+    }
 }
 
 void CleanupSurface(LayeredSurface& surf) {
@@ -1792,7 +1856,6 @@ void DrawSnowballShape(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, flo
 void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec) {
     float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-    // 1. Нижний слой (под иконками/окнами): эффекты, падающие объекты, нижнее накопление и нижние снежные шарики
     if (g_desktopOverlayHwnd && EnsureSurface(g_desktopSurface, g_canvasWidth, g_canvasHeight)) {
         RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
         g_desktopSurface.rt->BindDC(g_desktopSurface.memDC, &bindRect);
@@ -1879,6 +1942,11 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
                         DrawItemShape(g_desktopSurface.rt, brush, fo.kind, fo.relX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
                     }
                 }
+                for (const auto& pile : g_piles) {
+                    if (pile.onWindow) continue;
+                    brush->SetColor(GetColorForKind(cfg, pile.kind));
+                    DrawFoliagePileShape(g_desktopSurface.rt, brush, pile, pile.centerX, bottomRelY);
+                }
                 for (const auto& sb : g_snowballs) {
                     if (sb.onWindow) continue;
                     float drawY = sb.fallingOff ? sb.relY : (bottomRelY - sb.radius);
@@ -1896,7 +1964,6 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
         }
     }
 
-    // 2. Верхний слой (поверх окон): накопления и снежные шарики на верхних краях окон
     if (g_topWindowsOverlayHwnd && EnsureSurface(g_topWindowsSurface, g_canvasWidth, g_canvasHeight)) {
         RECT bindRect = {0, 0, g_canvasWidth, g_canvasHeight};
         g_topWindowsSurface.rt->BindDC(g_topWindowsSurface.memDC, &bindRect);
@@ -1914,6 +1981,15 @@ void RenderFrames(const Settings& cfg, const GeneralEffectsState& fx, int bottom
                     float drawY = static_cast<float>(it->second.rect.top - g_canvasTop) + fo.relY;
                     brush->SetColor(GetColorForKind(cfg, fo.kind));
                     DrawItemShape(g_topWindowsSurface.rt, brush, fo.kind, drawX, drawY, fo.size, fo.angle, fo.vx, fo.alpha);
+                }
+                for (const auto& pile : g_piles) {
+                    if (!pile.onWindow) continue;
+                    auto it = g_windows.find(pile.hostWindow);
+                    if (it == g_windows.end()) continue;
+                    float drawX = static_cast<float>(it->second.rect.left - g_canvasLeft) + pile.centerX;
+                    float drawY = static_cast<float>(it->second.rect.top - g_canvasTop);
+                    brush->SetColor(GetColorForKind(cfg, pile.kind));
+                    DrawFoliagePileShape(g_topWindowsSurface.rt, brush, pile, drawX, drawY);
                 }
                 for (const auto& sb : g_snowballs) {
                     if (!sb.onWindow) continue;
@@ -2187,6 +2263,10 @@ void RenderWorkerLoop() {
                         sb.vy = 80.0f;
                     }
                 }
+                g_piles.erase(
+                    std::remove_if(g_piles.begin(), g_piles.end(),
+                                   [closedHwnd](const FoliagePile& p) { return p.onWindow && p.hostWindow == closedHwnd; }),
+                    g_piles.end());
                 it = g_windows.erase(it);
             } else {
                 ++it;
@@ -2201,6 +2281,11 @@ void RenderWorkerLoop() {
             for (const auto& fo : g_fallen) {
                 if (fo.kind == k && fo.isSeasonalLayer == isS) ++c;
             }
+            for (const auto& pile : g_piles) {
+                if (pile.kind == k && pile.isSeasonalLayer == isS) {
+                    c += static_cast<int>(pile.members.size());
+                }
+            }
             return c;
         };
 
@@ -2213,6 +2298,7 @@ void RenderWorkerLoop() {
             p.swayPhase += dt * 3.0f;
             p.angle += p.spin * dt * 20.0f;
 
+            float prevY = p.y;
             float sway = (p.kind == ObjectKind::Rain) ? 0.0f : std::sin(p.swayPhase) * 18.0f;
             p.x += (vx + sway) * dt;
             p.y += vy * dt;
@@ -2227,13 +2313,15 @@ void RenderWorkerLoop() {
                         float wLeft = static_cast<float>(wr.left - g_canvasLeft);
                         float wRight = static_cast<float>(wr.right - g_canvasLeft);
                         float wTop = static_cast<float>(wr.top - g_canvasTop);
-                        if (p.x >= wLeft + 4.0f && p.x <= wRight - 4.0f && p.y >= wTop - 4.0f && p.y <= wTop + 5.0f) {
+                        bool crossTop = (prevY <= wTop + 12.0f && p.y >= wTop - 10.0f) ||
+                                        (p.y >= wTop - 8.0f && p.y <= wTop + 12.0f);
+                        if (p.x >= wLeft && p.x <= wRight && crossTop) {
                             FallenItem fo;
                             fo.kind = p.kind;
                             fo.isSeasonalLayer = p.isSeasonalLayer;
                             fo.onWindow = true;
                             fo.hostWindow = kv.first;
-                            fo.relX = p.x - wLeft;
+                            fo.relX = std::clamp(p.x - wLeft, 2.0f, std::max(3.0f, (wRight - wLeft) - 2.0f));
                             fo.relY = -p.size * 0.35f;
                             fo.size = p.size;
                             fo.angle = p.angle;
@@ -2315,29 +2403,26 @@ void RenderWorkerLoop() {
             }
 
             bool isSnow = (fo.kind == ObjectKind::Snow || fo.kind == ObjectKind::ExtraSnow);
-            bool isLeaf = (fo.kind == ObjectKind::AutumnLeaves);
+            bool isFoliage = (fo.kind == ObjectKind::AutumnLeaves || fo.kind == ObjectKind::Petals);
             bool isPuddle = (!fo.onWindow && !fo.fallingOff && fo.kind == ObjectKind::Rain);
 
             if (cfg.cursorAction == CursorActionMode::Move && !isPuddle && dist < cRad && cMoveLen > 0.6f) {
                 float dirX = cDx / cMoveLen;
                 if (isSnow) {
-                    // Скатываем снежинки в снежный шарик около курсора
-                    Snowball* targetBall = nullptr;
-                    for (auto& sb : g_snowballs) {
+                    // Создаем снежный шарик при движении курсора по лежачему снегу; растет он только при слиянии с лежачими снежинками
+                    bool nearExisting = false;
+                    for (const auto& sb : g_snowballs) {
                         if (sb.onWindow == fo.onWindow && sb.hostWindow == fo.hostWindow && !sb.fallingOff) {
                             float sbAbsX = sb.onWindow
                                 ? (static_cast<float>(g_windows[sb.hostWindow].rect.left - g_canvasLeft) + sb.relX)
                                 : sb.relX;
-                            if (std::abs(sbAbsX - cX) < cRad * 0.65f && sb.radius < maxBallR) {
-                                targetBall = &sb;
+                            if (std::abs(sbAbsX - absX) < sb.radius + 24.0f) {
+                                nearExisting = true;
                                 break;
                             }
                         }
                     }
-                    if (targetBall) {
-                        targetBall->radius = std::min(maxBallR, targetBall->radius + 1.15f);
-                        targetBall->vx += dirX * 28.0f;
-                    } else if (g_snowballs.size() < 40) {
+                    if (!nearExisting && g_snowballs.size() < 40) {
                         Snowball sb;
                         sb.kind = fo.kind;
                         sb.isSeasonalLayer = fo.isSeasonalLayer;
@@ -2345,39 +2430,42 @@ void RenderWorkerLoop() {
                         sb.hostWindow = fo.hostWindow;
                         sb.relX = fo.relX;
                         sb.relY = fo.relY;
-                        sb.vx = dirX * 45.0f;
-                        sb.radius = std::clamp(fo.size * 1.4f, 6.0f, maxBallR);
+                        sb.vx = dirX * 55.0f;
+                        sb.radius = std::clamp(fo.size * 1.15f, 5.0f, maxBallR);
                         sb.alpha = fo.alpha;
                         g_snowballs.push_back(sb);
+                        g_fallen.erase(g_fallen.begin() + i);
+                        continue;
                     }
-                    g_fallen.erase(g_fallen.begin() + i);
-                    continue;
-                } else if (isLeaf) {
-                    // Собираем листья в кучу-холмик с ограничением по высоте
-                    float shiftX = dirX * std::min(320.0f, cMoveLen * 12.0f + 70.0f) * dt;
-                    if (fo.onWindow) {
-                        auto it = g_windows.find(fo.hostWindow);
-                        if (it != g_windows.end()) {
-                            int w = it->second.rect.right - it->second.rect.left;
-                            fo.relX = std::clamp(fo.relX + shiftX, 3.0f, static_cast<float>(std::max(4, w - 3)));
-                        }
-                    } else if (!fo.fallingOff) {
-                        fo.relX = std::clamp(fo.relX + shiftX, 0.0f, static_cast<float>(g_canvasWidth));
-                        int nearCount = 0;
-                        for (const auto& other : g_fallen) {
-                            if (!other.onWindow && !other.fallingOff && other.kind == ObjectKind::AutumnLeaves &&
-                                std::abs(other.relX - fo.relX) < fo.size * 1.4f) {
-                                ++nearCount;
+                } else if (isFoliage) {
+                    // Собираем листья/лепестки в единую кучу-холмик
+                    FoliagePile* targetPile = nullptr;
+                    for (auto& pile : g_piles) {
+                        if (pile.kind == fo.kind && pile.onWindow == fo.onWindow && pile.hostWindow == fo.hostWindow) {
+                            if (std::abs(pile.centerX - fo.relX) <= pile.halfWidth + cRad * 0.5f) {
+                                targetPile = &pile;
+                                break;
                             }
                         }
-                        float targetLift = std::min(maxLeafPileH, nearCount * (fo.size * 0.28f));
-                        float desiredRelY = -fo.size * 0.35f - targetLift;
-                        fo.relY += (desiredRelY - fo.relY) * std::min(1.0f, dt * 8.0f);
                     }
-                } else {
-                    float shiftX = dirX * 140.0f * (1.0f - dist / cRad) * dt;
-                    if (!fo.onWindow && !fo.fallingOff) {
-                        fo.relX = std::clamp(fo.relX + shiftX, 0.0f, static_cast<float>(g_canvasWidth));
+                    if (!targetPile && g_piles.size() < 36) {
+                        FoliagePile newPile;
+                        newPile.kind = fo.kind;
+                        newPile.isSeasonalLayer = fo.isSeasonalLayer;
+                        newPile.onWindow = fo.onWindow;
+                        newPile.hostWindow = fo.hostWindow;
+                        newPile.centerX = fo.relX;
+                        newPile.baseY = 0.0f;
+                        newPile.halfWidth = 36.0f;
+                        newPile.height = fo.size * 0.6f;
+                        g_piles.push_back(newPile);
+                        targetPile = &g_piles.back();
+                    }
+                    if (targetPile) {
+                        AddItemToFoliagePile(*targetPile, fo.relX, fo.size, fo.angle, fo.alpha, maxLeafPileH, rng);
+                        targetPile->vx += dirX * 35.0f;
+                        g_fallen.erase(g_fallen.begin() + i);
+                        continue;
                     }
                 }
             }
@@ -2403,7 +2491,56 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление снежных шариков (катание, срыв с края окна, рассыпание при падении вниз)
+        // Обновление единых куч листьев и лепестков
+        for (size_t i = 0; i < g_piles.size();) {
+            FoliagePile& pile = g_piles[i];
+            pile.ageSec += dt;
+
+            double lifeMin = GetLifetimeMinForKind(cfg, pile.kind, pile.isSeasonalLayer);
+            if (lifeMin >= 0.0 && pile.ageSec >= lifeMin * 60.0) {
+                for (auto& m : pile.members) m.alpha -= dt * 1.5f;
+                if (!pile.members.empty() && pile.members.front().alpha <= 0.03f) {
+                    g_piles.erase(g_piles.begin() + i);
+                    continue;
+                }
+            }
+
+            float absCenterX = pile.centerX;
+            float absBaseY = bottomRelY;
+            if (pile.onWindow) {
+                auto it = g_windows.find(pile.hostWindow);
+                if (it != g_windows.end()) {
+                    absCenterX = static_cast<float>(it->second.rect.left - g_canvasLeft) + pile.centerX;
+                    absBaseY = static_cast<float>(it->second.rect.top - g_canvasTop);
+                }
+            }
+
+            float dist = std::hypot(absCenterX - cX, (absBaseY - pile.height * 0.3f) - cY);
+            if (cfg.cursorAction == CursorActionMode::Clear && dist < cRad + pile.halfWidth * 0.5f) {
+                g_piles.erase(g_piles.begin() + i);
+                continue;
+            }
+            if (cfg.cursorAction == CursorActionMode::Move && dist < cRad + pile.halfWidth * 0.5f && cMoveLen > 0.5f) {
+                pile.vx += (cDx / cMoveLen) * 160.0f * dt;
+            }
+
+            pile.centerX += pile.vx * dt;
+            pile.vx *= std::pow(0.14f, dt);
+
+            if (pile.onWindow) {
+                auto it = g_windows.find(pile.hostWindow);
+                if (it != g_windows.end()) {
+                    float w = static_cast<float>(std::max(10L, it->second.rect.right - it->second.rect.left));
+                    pile.centerX = std::clamp(pile.centerX, pile.halfWidth * 0.5f, std::max(pile.halfWidth * 0.5f, w - pile.halfWidth * 0.5f));
+                }
+            } else {
+                pile.centerX = std::clamp(pile.centerX, 0.0f, static_cast<float>(g_canvasWidth));
+            }
+
+            ++i;
+        }
+
+        // Обновление снежных шариков: слияние с лежачими снежинками, катание и рассыпание при падении
         for (size_t i = 0; i < g_snowballs.size();) {
             Snowball& sb = g_snowballs[i];
             sb.ageSec += dt;
@@ -2434,6 +2571,23 @@ void RenderWorkerLoop() {
                     sb.relX += sb.vx * dt;
                     sb.vx *= std::pow(0.15f, dt);
 
+                    // Слияние с лежачими снежинками на том же окне при катании/движении
+                    if (sb.radius < maxBallR && std::abs(sb.vx) > 2.0f) {
+                        for (size_t j = 0; j < g_fallen.size();) {
+                            const FallenItem& fo = g_fallen[j];
+                            if (fo.onWindow && fo.hostWindow == sb.hostWindow && !fo.fallingOff &&
+                                (fo.kind == ObjectKind::Snow || fo.kind == ObjectKind::ExtraSnow) &&
+                                std::abs(fo.relX - sb.relX) <= sb.radius + fo.size * 1.2f) {
+                                float area = sb.radius * sb.radius + fo.size * fo.size * 0.55f;
+                                sb.radius = std::min(maxBallR, std::sqrt(area));
+                                g_fallen.erase(g_fallen.begin() + j);
+                                if (sb.radius >= maxBallR) break;
+                            } else {
+                                ++j;
+                            }
+                        }
+                    }
+
                     if (sb.relX < 0.0f || sb.relX > static_cast<float>(w)) {
                         sb.onWindow = false;
                         sb.fallingOff = true;
@@ -2448,7 +2602,6 @@ void RenderWorkerLoop() {
                 sb.relY += sb.vy * dt;
 
                 if (sb.relY + sb.radius >= bottomRelY) {
-                    // Рассыпаем шарик обратно на снежинки при ударе о нижнюю границу
                     int maxAcc = GetMaxAccumulatedForKind(cfg, sb.kind, sb.isSeasonalLayer);
                     int curCount = countAccumulated(sb.kind, sb.isSeasonalLayer);
                     int flakesToSpawn = std::clamp(static_cast<int>(sb.radius / 3.0f), 4, 18);
@@ -2478,6 +2631,23 @@ void RenderWorkerLoop() {
                 }
                 sb.relX = std::clamp(sb.relX + sb.vx * dt, sb.radius, static_cast<float>(std::max(10.0f, g_canvasWidth - sb.radius)));
                 sb.vx *= std::pow(0.12f, dt);
+
+                // Слияние с лежачими снежинками внизу экрана при катании
+                if (sb.radius < maxBallR && std::abs(sb.vx) > 2.0f) {
+                    for (size_t j = 0; j < g_fallen.size();) {
+                        const FallenItem& fo = g_fallen[j];
+                        if (!fo.onWindow && !fo.fallingOff &&
+                            (fo.kind == ObjectKind::Snow || fo.kind == ObjectKind::ExtraSnow) &&
+                            std::abs(fo.relX - sb.relX) <= sb.radius + fo.size * 1.2f) {
+                            float area = sb.radius * sb.radius + fo.size * fo.size * 0.55f;
+                            sb.radius = std::min(maxBallR, std::sqrt(area));
+                            g_fallen.erase(g_fallen.begin() + j);
+                            if (sb.radius >= maxBallR) break;
+                        } else {
+                            ++j;
+                        }
+                    }
+                }
             }
 
             ++i;
