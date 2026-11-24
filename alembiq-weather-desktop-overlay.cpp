@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         0.4.2
+// @version         0.4.3
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
@@ -35,6 +35,16 @@
   $options:
     - primary: Primary monitor
     - all: All monitors (virtual screen)
+- cursorAction: clear
+  $name: "[System] Cursor action"
+  $description: "Affects fallen objects only. clear = erase on touch (default); move = 1 snowball & 1 leaf/petal pile per surface; none = ignore cursor."
+  $options:
+    - clear: Clear (erase on touch)
+    - move: Move (1 snowball & 1 pile per surface)
+    - none: None (ignore cursor)
+- cursorRadiusPx: 95
+  $name: "[System] Cursor radius (px)"
+  $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
 
 # --- 2. ACCUMULATION TOGGLES ---
 - enableBottomAccumulation: true
@@ -59,12 +69,9 @@
     - off: Off
     - open_meteo: Open-Meteo API
     - local_file: Local file
-- latitude: "44.7866"
-  $name: "[Weather] Latitude"
-  $description: "Latitude in decimal degrees (-90.0 to 90.0). Invalid resets to 44.7866."
-- longitude: "20.4489"
-  $name: "[Weather] Longitude"
-  $description: "Longitude in decimal degrees (-180.0 to 180.0). Invalid resets to 20.4489."
+- coords: "44.7866/20.4489"
+  $name: "[Weather] Latitude/Longitude"
+  $description: "Format: lat/lon (e.g. 44.7866/20.4489). Latitude -90..90, longitude -180..180. Invalid resets to 44.7866/20.4489."
 - customApiUrl: ""
   $name: "[Weather] Custom JSON API URL"
   $description: "HTTP/HTTPS JSON endpoint (weather_code, condition, wind_speed_10m, wind_direction_10m, temperature_2m, cloud_cover, visibility, is_day)."
@@ -74,30 +81,9 @@
 - updateIntervalMin: 30
   $name: "[Weather] Update interval (min)"
   $description: "Forecast refresh period in minutes (1 to 1440). Invalid/out-of-range resets to 30."
-- springStart: "01.03"
-  $name: "[Seasons] Spring start (DD.MM)"
-  $description: "Spring start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.03."
-- springEnd: "31.05"
-  $name: "[Seasons] Spring end (DD.MM)"
-  $description: "Spring end date in DD.MM format (01.01 to 31.12). Invalid resets to 31.05."
-- summerStart: "01.06"
-  $name: "[Seasons] Summer start (DD.MM)"
-  $description: "Summer start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.06."
-- summerEnd: "31.08"
-  $name: "[Seasons] Summer end (DD.MM)"
-  $description: "Summer end date in DD.MM format (01.01 to 31.12). Invalid resets to 31.08."
-- autumnStart: "01.09"
-  $name: "[Seasons] Autumn start (DD.MM)"
-  $description: "Autumn start date in DD.MM format (01.01 to 31.12). Invalid resets to 01.09."
-- autumnEnd: "30.11"
-  $name: "[Seasons] Autumn end (DD.MM)"
-  $description: "Autumn end date in DD.MM format (01.01 to 31.12). Invalid resets to 30.11."
-- winterStart: "01.12"
-  $name: "[Seasons] Winter start (DD.MM)"
-  $description: "Winter start date in DD.MM format (supports year wrap). Invalid resets to 01.12."
-- winterEnd: "29.02"
-  $name: "[Seasons] Winter end (DD.MM)"
-  $description: "Winter end date in DD.MM format (supports year wrap). Invalid resets to 29.02."
+- seasonsRange: "01.03-31.05/01.06-31.08/01.09-30.11/01.12-29.02"
+  $name: "[Seasons] Spring/Summer/Autumn/Winter (DD.MM-DD.MM)"
+  $description: "Four DD.MM-DD.MM ranges separated by '/'. Invalid format resets to 01.03-31.05/01.06-31.08/01.09-30.11/01.12-29.02."
 
 # --- 4. PRECIPITATION (RAIN / SNOW / HAIL) ---
 - precipitationMode: auto
@@ -120,42 +106,15 @@
 - precipFallSpeedMps: "6.5"
   $name: "[Precip] Fall speed (m/s)"
   $description: "Fall speed in m/s (0.1 to 50.0). Invalid/out-of-range resets to 6.5."
-- rainIntensity: 25
-  $name: "[Precip] Rain intensity (%)"
-  $description: "Rain intensity (0..100). Any value outside 0..100 or invalid resets to 25."
-- snowIntensity: 25
-  $name: "[Precip] Snow intensity (%)"
-  $description: "Snow intensity (0..100). Any value outside 0..100 or invalid resets to 25."
-- hailIntensity: 25
-  $name: "[Precip] Hail intensity (%)"
-  $description: "Hail intensity (0..100). Any value outside 0..100 or invalid resets to 25."
-- rainMaxAccumulated: 180
-  $name: "[Precip] Rain puddles max count"
-  $description: "Max rain puddle elements on screen (0..2000; 0 disables). Invalid/out-of-range resets to 180."
-- snowMaxAccumulated: 260
-  $name: "[Precip] Snow max accumulated"
-  $description: "Max accumulated snow items on screen (0..2000; 0 disables). Invalid/out-of-range resets to 260."
-- hailMaxAccumulated: 220
-  $name: "[Precip] Hail max accumulated"
-  $description: "Max accumulated hail items on screen (0..2000; 0 disables). Invalid/out-of-range resets to 220."
-- rainLifetimeMin: "3.0"
-  $name: "[Precip] Rain puddles lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 3.0."
-- snowLifetimeMin: "15.0"
-  $name: "[Precip] Snow lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 15.0."
-- hailLifetimeMin: "10.0"
-  $name: "[Precip] Hail lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 10.0."
-- colorRain: ""
-  $name: "[Precip] Rain color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default sky-blue. Invalid HEX resets to default."
-- colorSnow: ""
-  $name: "[Precip] Snow color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default white. Invalid HEX resets to default."
-- colorHail: ""
-  $name: "[Precip] Hail color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default ice-blue. Invalid HEX resets to default."
+- precipIntensity: 25
+  $name: "[Precip] Intensity (%)"
+  $description: "Shared intensity for rain, snow, and hail (0..100). Any value outside 0..100 or invalid resets to 25."
+- precipMaxAccumulated: 220
+  $name: "[Precip] Max accumulated"
+  $description: "Shared max accumulated count for precipitation items/puddles (0..2000; 0 disables). Invalid/out-of-range resets to 220."
+- precipLifetimeMin: "10.0"
+  $name: "[Precip] Lifetime (min)"
+  $description: "Shared auto-disappear time for accumulated precipitation in minutes (-1 to 1440; -1 = never). Invalid resets to 10.0."
 
 # --- 5. SEASONAL OBJECTS (LEAVES / EXTRA SNOW / PETALS) ---
 - seasonalObjectMode: auto
@@ -178,42 +137,15 @@
 - seasonalFallSpeedMps: "2.2"
   $name: "[SeasonObj] Fall speed (m/s)"
   $description: "Fall speed in m/s (0.1 to 30.0). Invalid/out-of-range resets to 2.2."
-- autumnLeavesIntensity: 25
-  $name: "[SeasonObj] Autumn leaves intensity (%)"
-  $description: "Autumn leaves intensity (0..100). Outside 0..100 or invalid resets to 25."
-- extraSnowIntensity: 25
-  $name: "[SeasonObj] Extra snow intensity (%)"
-  $description: "Extra snow intensity (0..100). Outside 0..100 or invalid resets to 25."
-- petalsIntensity: 25
-  $name: "[SeasonObj] Petals intensity (%)"
-  $description: "Petals intensity (0..100). Outside 0..100 or invalid resets to 25."
-- autumnLeavesMaxAccumulated: 220
-  $name: "[SeasonObj] Autumn leaves max accumulated"
-  $description: "Max accumulated maple leaves on screen (0..2000; 0 disables). Invalid/out-of-range resets to 220."
-- extraSnowMaxAccumulated: 240
-  $name: "[SeasonObj] Extra snow max accumulated"
-  $description: "Max accumulated extra snow items (0..2000; 0 disables). Invalid/out-of-range resets to 240."
-- petalsMaxAccumulated: 220
-  $name: "[SeasonObj] Petals max accumulated"
-  $description: "Max accumulated petals on screen (0..2000; 0 disables). Invalid/out-of-range resets to 220."
-- autumnLeavesLifetimeMin: "20.0"
-  $name: "[SeasonObj] Autumn leaves lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 20.0."
-- extraSnowLifetimeMin: "15.0"
-  $name: "[SeasonObj] Extra snow lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 15.0."
-- petalsLifetimeMin: "12.0"
-  $name: "[SeasonObj] Petals lifetime (min)"
-  $description: "Auto-disappear time in minutes (-1 to 1440; -1 = never). Invalid resets to 12.0."
-- colorAutumnLeaves: ""
-  $name: "[SeasonObj] Autumn leaves color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default maple orange-amber. Invalid HEX resets to default."
-- colorExtraSnow: ""
-  $name: "[SeasonObj] Extra snow color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default snow-white. Invalid HEX resets to default."
-- colorPetals: ""
-  $name: "[SeasonObj] Petals color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default soft pink. Invalid HEX resets to default."
+- seasonalIntensity: 25
+  $name: "[SeasonObj] Intensity (%)"
+  $description: "Shared intensity for autumn leaves, extra snow, and petals (0..100). Any value outside 0..100 or invalid resets to 25."
+- seasonalMaxAccumulated: 220
+  $name: "[SeasonObj] Max accumulated"
+  $description: "Shared max accumulated count for seasonal objects (0..2000; 0 disables). Invalid/out-of-range resets to 220."
+- seasonalLifetimeMin: "15.0"
+  $name: "[SeasonObj] Lifetime (min)"
+  $description: "Shared auto-disappear time for accumulated seasonal objects in minutes (-1 to 1440; -1 = never). Invalid resets to 15.0."
 
 # --- 6. GENERAL EFFECTS ---
 - effectsIntensity: 25
@@ -289,15 +221,9 @@
     - auto: Auto (forecast)
     - on: On
     - off: Off
-- rainbowCenterX: 50
-  $name: "[Rainbow] Center X (%)"
-  $description: "Horizontal center from left to right in % of screen width (0..100). Outside 0..100 or invalid resets to 50."
-- rainbowCenterY: 15
-  $name: "[Rainbow] Center Y (%)"
-  $description: "Vertical center from bottom to top in % of screen height (0..100). Outside 0..100 or invalid resets to 15."
-- rainbowRadius: 55
-  $name: "[Rainbow] Radius (%)"
-  $description: "Arc radius in % (0..100; 0 = off, 100 = min(screenWidth, screenHeight)). Outside 0..100 or invalid resets to 55."
+- rainbowGeometry: "55-50/15"
+  $name: "[Rainbow] Radius-Center X/Center Y"
+  $description: "Format: radius-centerX/centerY in % (0..100; radius 0 = off, 100 = min(width, height); X left->right, Y bottom->top). Default: 55-50/15."
 - effectHalo: auto
   $name: "[Effects] Halo"
   $description: "Soft luminous atmospheric halo ring (auto triggers on thin/mid cloud cover without heavy precip). Allowed: auto, on, off."
@@ -305,60 +231,11 @@
     - auto: Auto (forecast)
     - on: On
     - off: Off
-- haloCenterX: 50
-  $name: "[Halo] Center X (%)"
-  $description: "Horizontal center from left to right in % of screen width (0..100). Outside 0..100 or invalid resets to 50."
-- haloCenterY: 72
-  $name: "[Halo] Center Y (%)"
-  $description: "Vertical center from bottom to top in % of screen height (0..100). Outside 0..100 or invalid resets to 72."
-- haloRadius: 24
-  $name: "[Halo] Radius (%)"
-  $description: "Halo radius in % (0..100; 0 = off, 100 = min(screenWidth, screenHeight)). Outside 0..100 or invalid resets to 24."
-- colorClear: ""
-  $name: "[Effects] Clear color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default warm sunlight."
-- colorPartlyCloudy: ""
-  $name: "[Effects] Partly cloudy color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default soft cloud."
-- colorOvercast: ""
-  $name: "[Effects] Overcast color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default slate gray."
-- colorDust: ""
-  $name: "[Effects] Dust color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default sand dust."
-- colorFog: ""
-  $name: "[Effects] Fog color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default mist."
-- colorSmog: ""
-  $name: "[Effects] Smog color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default smog."
-- colorThunderstorm: ""
-  $name: "[Effects] Thunderstorm color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default lightning white-blue."
-- colorAurora: ""
-  $name: "[Effects] Aurora color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default aurora green."
-- colorMirage: ""
-  $name: "[Effects] Mirage color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default warm shimmer."
-- colorRainbow: ""
-  $name: "[Effects] Rainbow color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default multi-color spectrum."
-- colorHalo: ""
-  $name: "[Effects] Halo color (#RRGGBB)"
-  $description: "Custom HEX (#RRGGBB) or empty for default pale halo."
+- haloGeometry: "24-50/72"
+  $name: "[Halo] Radius-Center X/Center Y"
+  $description: "Format: radius-centerX/centerY in % (0..100; radius 0 = off, 100 = min(width, height); X left->right, Y bottom->top). Default: 24-50/72."
 
-# --- 7. CURSOR, PILES, SNOWBALLS & WINDOW PHYSICS ---
-- cursorAction: clear
-  $name: "[Cursor] Action on fallen objects"
-  $description: "Affects fallen objects only. clear = erase on touch (default); move = 1 snowball & 1 leaf/petal pile per surface (bottom & each window); none = ignore cursor."
-  $options:
-    - clear: Clear (erase on touch)
-    - move: Move (1 snowball & 1 pile per surface)
-    - none: None (ignore cursor)
-- cursorRadiusPx: 95
-  $name: "[Cursor] Radius (px)"
-  $description: "Cursor action radius in pixels (10 to 500). Invalid/out-of-range resets to 95."
+# --- 7. PILES, SNOWBALLS & WINDOW PHYSICS ---
 - snowballMaxRadiusPx: 34
   $name: "[Snowballs] Max radius (px)"
   $description: "Maximum radius of the single snowball per surface grown by absorbing lying snowflakes (8 to 120). Invalid/out-of-range resets to 34."
@@ -375,7 +252,60 @@
   $name: "[Objects] Size scale"
   $description: "Size multiplier for falling and fallen objects (0.3 to 4.0). Invalid resets to 1.0."
 
-# --- 8. PERFORMANCE ---
+# --- 8. COLORS ---
+- colorRain: ""
+  $name: "[Color] Rain (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default sky-blue. Invalid HEX resets to default."
+- colorSnow: ""
+  $name: "[Color] Snow (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default white. Invalid HEX resets to default."
+- colorHail: ""
+  $name: "[Color] Hail (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default ice-blue. Invalid HEX resets to default."
+- colorAutumnLeaves: ""
+  $name: "[Color] Autumn leaves (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default maple orange-amber. Invalid HEX resets to default."
+- colorExtraSnow: ""
+  $name: "[Color] Extra snow (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default snow-white. Invalid HEX resets to default."
+- colorPetals: ""
+  $name: "[Color] Petals (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default soft pink. Invalid HEX resets to default."
+- colorClear: ""
+  $name: "[Color] Clear (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default warm sunlight."
+- colorPartlyCloudy: ""
+  $name: "[Color] Partly cloudy (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default soft cloud."
+- colorOvercast: ""
+  $name: "[Color] Overcast (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default slate gray."
+- colorDust: ""
+  $name: "[Color] Dust (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default sand dust."
+- colorFog: ""
+  $name: "[Color] Fog (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default mist."
+- colorSmog: ""
+  $name: "[Color] Smog (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default smog."
+- colorThunderstorm: ""
+  $name: "[Color] Thunderstorm (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default lightning white-blue."
+- colorAurora: ""
+  $name: "[Color] Aurora (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default aurora green."
+- colorMirage: ""
+  $name: "[Color] Mirage (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default warm shimmer."
+- colorRainbow: ""
+  $name: "[Color] Rainbow (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default multi-color spectrum."
+- colorHalo: ""
+  $name: "[Color] Halo (#RRGGBB)"
+  $description: "Custom HEX (#RRGGBB) or empty for default pale halo."
+
+# --- 9. PERFORMANCE ---
 - targetFps: 60
   $name: "[Perf] Target FPS (30 or 60)"
   $description: "Target frame rate (30 or 60). Any other value resets to 60."
@@ -470,11 +400,20 @@ struct DayMonth {
     int month = 1;
 };
 
+struct ArcGeometry {
+    int radius = 50;
+    int centerX = 50;
+    int centerY = 50;
+};
+
 struct Settings {
     std::wstring layerAttachMode = L"auto";
     std::wstring bottomBoundaryMode = L"above_taskbar";
     int bottomOffsetPx = 0;
     std::wstring multiMonitorMode = L"primary";
+
+    CursorActionMode cursorAction = CursorActionMode::Clear;
+    int cursorRadiusPx = 95;
 
     bool enableBottomAccumulation = true;
     bool enableWindowAccumulation = true;
@@ -500,33 +439,17 @@ struct Settings {
     FallDirMode precipFallDirection = FallDirMode::Auto;
     double precipFallSpeedMps = 6.5;
 
-    int rainIntensity = 25;
-    int snowIntensity = 25;
-    int hailIntensity = 25;
-
-    int rainMaxAccumulated = 180;
-    int snowMaxAccumulated = 260;
-    int hailMaxAccumulated = 220;
-
-    double rainLifetimeMin = 3.0;
-    double snowLifetimeMin = 15.0;
-    double hailLifetimeMin = 10.0;
+    int precipIntensity = 25;
+    int precipMaxAccumulated = 220;
+    double precipLifetimeMin = 10.0;
 
     SeasonalMode seasonalObjectMode = SeasonalMode::Auto;
     FallDirMode seasonalFallDirection = FallDirMode::Auto;
     double seasonalFallSpeedMps = 2.2;
 
-    int autumnLeavesIntensity = 25;
-    int extraSnowIntensity = 25;
-    int petalsIntensity = 25;
-
-    int autumnLeavesMaxAccumulated = 220;
-    int extraSnowMaxAccumulated = 240;
-    int petalsMaxAccumulated = 220;
-
-    double autumnLeavesLifetimeMin = 20.0;
-    double extraSnowLifetimeMin = 15.0;
-    double petalsLifetimeMin = 12.0;
+    int seasonalIntensity = 25;
+    int seasonalMaxAccumulated = 220;
+    double seasonalLifetimeMin = 15.0;
 
     int effectsIntensity = 25;
     TriStateMode effectClear = TriStateMode::Auto;
@@ -541,13 +464,14 @@ struct Settings {
     TriStateMode effectRainbow = TriStateMode::Auto;
     TriStateMode effectHalo = TriStateMode::Auto;
 
-    int rainbowCenterX = 50;
-    int rainbowCenterY = 15;
-    int rainbowRadius = 55;
+    ArcGeometry rainbowGeom{55, 50, 15};
+    ArcGeometry haloGeom{24, 50, 72};
 
-    int haloCenterX = 50;
-    int haloCenterY = 72;
-    int haloRadius = 24;
+    int snowballMaxRadiusPx = 34;
+    int leafPileMaxHeightPx = 54;
+    int windowShakeSensitivity = 55;
+    double windowInertiaFactor = 0.75;
+    double particleScale = 1.0;
 
     D2D1_COLOR_F colorRain = D2D1::ColorF(0.42f, 0.72f, 1.0f, 0.78f);
     D2D1_COLOR_F colorSnow = D2D1::ColorF(0.96f, 0.98f, 1.0f, 0.92f);
@@ -578,14 +502,6 @@ struct Settings {
     D2D1_COLOR_F colorRainbow = D2D1::ColorF(1.0f, 0.78f, 0.35f, 0.35f);
     bool hasCustomHaloColor = false;
     D2D1_COLOR_F colorHalo = D2D1::ColorF(0.98f, 0.95f, 0.82f, 0.32f);
-
-    CursorActionMode cursorAction = CursorActionMode::Clear;
-    int cursorRadiusPx = 95;
-    int snowballMaxRadiusPx = 34;
-    int leafPileMaxHeightPx = 54;
-    int windowShakeSensitivity = 55;
-    double windowInertiaFactor = 0.75;
-    double particleScale = 1.0;
 
     int targetFps = 60;
     bool pauseOnFullscreen = true;
@@ -757,6 +673,28 @@ int SanitizePercent(int rawVal) {
     return ParseIntRangeOrDefault(rawVal, 0, 100, 25);
 }
 
+void ParseCoordsString(const std::wstring& raw, double& outLat, double& outLon) {
+    double defLat = 44.7866;
+    double defLon = 20.4489;
+    std::wstring s = Trim(raw);
+    size_t sep = s.find(L'/');
+    if (sep == std::wstring::npos) sep = s.find(L',');
+    if (sep == std::wstring::npos) {
+        outLat = defLat;
+        outLon = defLon;
+        return;
+    }
+    double lat = 0.0, lon = 0.0;
+    if (!TryParseDoubleStrict(s.substr(0, sep), lat) || !TryParseDoubleStrict(s.substr(sep + 1), lon) ||
+        lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+        outLat = defLat;
+        outLon = defLon;
+        return;
+    }
+    outLat = lat;
+    outLon = lon;
+}
+
 int DaysInMonthSafe(int month) {
     switch (month) {
         case 2: return 29;
@@ -765,24 +703,95 @@ int DaysInMonthSafe(int month) {
     }
 }
 
-DayMonth ParseDayMonthStrict(const std::wstring& raw, DayMonth defVal) {
+bool TryParseDayMonthStrict(const std::wstring& raw, DayMonth& outDm) {
     std::wstring s = Trim(raw);
     size_t sep = s.find(L'.');
     if (sep == std::wstring::npos) sep = s.find(L'/');
-    if (sep == std::wstring::npos) return defVal;
+    if (sep == std::wstring::npos) return false;
     std::wstring dPart = Trim(s.substr(0, sep));
     std::wstring mPart = Trim(s.substr(sep + 1));
-    if (dPart.empty() || mPart.empty()) return defVal;
-    for (wchar_t c : dPart) if (!iswdigit(c)) return defVal;
-    for (wchar_t c : mPart) if (!iswdigit(c)) return defVal;
+    if (dPart.empty() || mPart.empty()) return false;
+    for (wchar_t c : dPart) if (!iswdigit(c)) return false;
+    for (wchar_t c : mPart) if (!iswdigit(c)) return false;
     try {
         int d = std::stoi(dPart);
         int m = std::stoi(mPart);
-        if (m < 1 || m > 12) return defVal;
-        if (d < 1 || d > DaysInMonthSafe(m)) return defVal;
-        return DayMonth{d, m};
+        if (m < 1 || m > 12) return false;
+        if (d < 1 || d > DaysInMonthSafe(m)) return false;
+        outDm = DayMonth{d, m};
+        return true;
     } catch (...) {
-        return defVal;
+        return false;
+    }
+}
+
+bool TryParseDateRangePair(const std::wstring& raw, DayMonth& outStart, DayMonth& outEnd) {
+    size_t dash = raw.find(L'-');
+    if (dash == std::wstring::npos) return false;
+    return TryParseDayMonthStrict(raw.substr(0, dash), outStart) &&
+           TryParseDayMonthStrict(raw.substr(dash + 1), outEnd);
+}
+
+void ParseSeasonsRangeString(const std::wstring& raw, Settings& cfg) {
+    DayMonth defSpS{1, 3}, defSpE{31, 5};
+    DayMonth defSuS{1, 6}, defSuE{31, 8};
+    DayMonth defAuS{1, 9}, defAuE{30, 11};
+    DayMonth defWiS{1, 12}, defWiE{29, 2};
+
+    std::vector<std::wstring> parts;
+    std::wstringstream ss(raw);
+    std::wstring item;
+    while (std::getline(ss, item, L'/')) {
+        parts.push_back(Trim(item));
+    }
+
+    DayMonth spS = defSpS, spE = defSpE, suS = defSuS, suE = defSuE, auS = defAuS, auE = defAuE, wiS = defWiS, wiE = defWiE;
+    if (parts.size() != 4 ||
+        !TryParseDateRangePair(parts[0], spS, spE) ||
+        !TryParseDateRangePair(parts[1], suS, suE) ||
+        !TryParseDateRangePair(parts[2], auS, auE) ||
+        !TryParseDateRangePair(parts[3], wiS, wiE)) {
+        cfg.springStart = defSpS; cfg.springEnd = defSpE;
+        cfg.summerStart = defSuS; cfg.summerEnd = defSuE;
+        cfg.autumnStart = defAuS; cfg.autumnEnd = defAuE;
+        cfg.winterStart = defWiS; cfg.winterEnd = defWiE;
+        return;
+    }
+
+    cfg.springStart = spS; cfg.springEnd = spE;
+    cfg.summerStart = suS; cfg.summerEnd = suE;
+    cfg.autumnStart = auS; cfg.autumnEnd = auE;
+    cfg.winterStart = wiS; cfg.winterEnd = wiE;
+}
+
+void ParseArcGeometryString(const std::wstring& raw, ArcGeometry defGeom, ArcGeometry& outGeom) {
+    // Формат: "Radius-CenterX/CenterY"
+    outGeom = defGeom;
+    std::wstring s = Trim(raw);
+    size_t dash = s.find(L'-');
+    size_t slash = s.find(L'/');
+    if (dash == std::wstring::npos || slash == std::wstring::npos || slash <= dash) return;
+
+    std::wstring rPart = Trim(s.substr(0, dash));
+    std::wstring xPart = Trim(s.substr(dash + 1, slash - dash - 1));
+    std::wstring yPart = Trim(s.substr(slash + 1));
+
+    auto isIntStr = [](const std::wstring& p) -> bool {
+        if (p.empty()) return false;
+        for (wchar_t c : p) if (!iswdigit(c)) return false;
+        return true;
+    };
+    if (!isIntStr(rPart) || !isIntStr(xPart) || !isIntStr(yPart)) return;
+
+    try {
+        int r = std::stoi(rPart);
+        int x = std::stoi(xPart);
+        int y = std::stoi(yPart);
+        if (r < 0 || r > 100 || x < 0 || x > 100 || y < 0 || y > 100) return;
+        outGeom.radius = r;
+        outGeom.centerX = x;
+        outGeom.centerY = y;
+    } catch (...) {
     }
 }
 
@@ -903,37 +912,29 @@ void LoadSettingsFromWh() {
     next.bottomOffsetPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"bottomOffsetPx"), -500, 1000, 0);
     next.multiMonitorMode = readStr(L"multiMonitorMode", L"primary");
 
+    next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"clear"));
+    next.cursorRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500, 95);
+
     next.enableBottomAccumulation = Wh_GetIntSetting(L"enableBottomAccumulation") != 0;
     next.enableWindowAccumulation = Wh_GetIntSetting(L"enableWindowAccumulation") != 0;
 
     next.primarySource = readStr(L"primarySource", L"open_meteo");
     next.fallbackSource = readStr(L"fallbackSource", L"off");
-    next.latitude = ParseDoubleRangeOrDefault(readStr(L"latitude", L"44.7866"), -90.0, 90.0, 44.7866);
-    next.longitude = ParseDoubleRangeOrDefault(readStr(L"longitude", L"20.4489"), -180.0, 180.0, 20.4489);
+    ParseCoordsString(readStr(L"coords", L"44.7866/20.4489"), next.latitude, next.longitude);
     next.customApiUrl = Trim(readStr(L"customApiUrl", L""));
     next.localWeatherPath = Trim(readStr(L"localWeatherPath", L""));
     next.updateIntervalMin = ParseIntRangeOrDefault(Wh_GetIntSetting(L"updateIntervalMin"), 1, 1440, 30);
 
-    next.springStart = ParseDayMonthStrict(readStr(L"springStart", L"01.03"), DayMonth{1, 3});
-    next.springEnd = ParseDayMonthStrict(readStr(L"springEnd", L"31.05"), DayMonth{31, 5});
-    next.summerStart = ParseDayMonthStrict(readStr(L"summerStart", L"01.06"), DayMonth{1, 6});
-    next.summerEnd = ParseDayMonthStrict(readStr(L"summerEnd", L"31.08"), DayMonth{31, 8});
-    next.autumnStart = ParseDayMonthStrict(readStr(L"autumnStart", L"01.09"), DayMonth{1, 9});
-    next.autumnEnd = ParseDayMonthStrict(readStr(L"autumnEnd", L"30.11"), DayMonth{30, 11});
-    next.winterStart = ParseDayMonthStrict(readStr(L"winterStart", L"01.12"), DayMonth{1, 12});
-    next.winterEnd = ParseDayMonthStrict(readStr(L"winterEnd", L"29.02"), DayMonth{29, 2});
+    ParseSeasonsRangeString(
+        readStr(L"seasonsRange", L"01.03-31.05/01.06-31.08/01.09-30.11/01.12-29.02"),
+        next);
 
     next.precipitationMode = ParsePrecipMode(readStr(L"precipitationMode", L"auto"));
     next.precipFallDirection = ParseFallDir(readStr(L"precipFallDirection", L"auto"));
     next.precipFallSpeedMps = ParseDoubleRangeOrDefault(readStr(L"precipFallSpeedMps", L"6.5"), 0.1, 50.0, 6.5);
 
-    next.rainIntensity = SanitizePercent(Wh_GetIntSetting(L"rainIntensity"));
-    next.snowIntensity = SanitizePercent(Wh_GetIntSetting(L"snowIntensity"));
-    next.hailIntensity = SanitizePercent(Wh_GetIntSetting(L"hailIntensity"));
-
-    next.rainMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"rainMaxAccumulated"), 0, 2000, 180);
-    next.snowMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowMaxAccumulated"), 0, 2000, 260);
-    next.hailMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"hailMaxAccumulated"), 0, 2000, 220);
+    next.precipIntensity = SanitizePercent(Wh_GetIntSetting(L"precipIntensity"));
+    next.precipMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"precipMaxAccumulated"), 0, 2000, 220);
 
     auto readLifetime = [&](LPCWSTR key, double defMin) -> double {
         double v = 0.0;
@@ -944,25 +945,15 @@ void LoadSettingsFromWh() {
         if (v > 1440.0) return defMin;
         return std::max(0.05, v);
     };
-    next.rainLifetimeMin = readLifetime(L"rainLifetimeMin", 3.0);
-    next.snowLifetimeMin = readLifetime(L"snowLifetimeMin", 15.0);
-    next.hailLifetimeMin = readLifetime(L"hailLifetimeMin", 10.0);
+    next.precipLifetimeMin = readLifetime(L"precipLifetimeMin", 10.0);
 
     next.seasonalObjectMode = ParseSeasonalMode(readStr(L"seasonalObjectMode", L"auto"));
     next.seasonalFallDirection = ParseFallDir(readStr(L"seasonalFallDirection", L"auto"));
     next.seasonalFallSpeedMps = ParseDoubleRangeOrDefault(readStr(L"seasonalFallSpeedMps", L"2.2"), 0.1, 30.0, 2.2);
 
-    next.autumnLeavesIntensity = SanitizePercent(Wh_GetIntSetting(L"autumnLeavesIntensity"));
-    next.extraSnowIntensity = SanitizePercent(Wh_GetIntSetting(L"extraSnowIntensity"));
-    next.petalsIntensity = SanitizePercent(Wh_GetIntSetting(L"petalsIntensity"));
-
-    next.autumnLeavesMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"autumnLeavesMaxAccumulated"), 0, 2000, 220);
-    next.extraSnowMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"extraSnowMaxAccumulated"), 0, 2000, 240);
-    next.petalsMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"petalsMaxAccumulated"), 0, 2000, 220);
-
-    next.autumnLeavesLifetimeMin = readLifetime(L"autumnLeavesLifetimeMin", 20.0);
-    next.extraSnowLifetimeMin = readLifetime(L"extraSnowLifetimeMin", 15.0);
-    next.petalsLifetimeMin = readLifetime(L"petalsLifetimeMin", 12.0);
+    next.seasonalIntensity = SanitizePercent(Wh_GetIntSetting(L"seasonalIntensity"));
+    next.seasonalMaxAccumulated = ParseIntRangeOrDefault(Wh_GetIntSetting(L"seasonalMaxAccumulated"), 0, 2000, 220);
+    next.seasonalLifetimeMin = readLifetime(L"seasonalLifetimeMin", 15.0);
 
     next.effectsIntensity = SanitizePercent(Wh_GetIntSetting(L"effectsIntensity"));
     next.effectClear = ParseTriState(readStr(L"effectClear", L"auto"));
@@ -977,13 +968,14 @@ void LoadSettingsFromWh() {
     next.effectRainbow = ParseTriState(readStr(L"effectRainbow", L"auto"));
     next.effectHalo = ParseTriState(readStr(L"effectHalo", L"auto"));
 
-    next.rainbowCenterX = ParseIntRangeOrDefault(Wh_GetIntSetting(L"rainbowCenterX"), 0, 100, 50);
-    next.rainbowCenterY = ParseIntRangeOrDefault(Wh_GetIntSetting(L"rainbowCenterY"), 0, 100, 15);
-    next.rainbowRadius = ParseIntRangeOrDefault(Wh_GetIntSetting(L"rainbowRadius"), 0, 100, 55);
+    ParseArcGeometryString(readStr(L"rainbowGeometry", L"55-50/15"), ArcGeometry{55, 50, 15}, next.rainbowGeom);
+    ParseArcGeometryString(readStr(L"haloGeometry", L"24-50/72"), ArcGeometry{24, 50, 72}, next.haloGeom);
 
-    next.haloCenterX = ParseIntRangeOrDefault(Wh_GetIntSetting(L"haloCenterX"), 0, 100, 50);
-    next.haloCenterY = ParseIntRangeOrDefault(Wh_GetIntSetting(L"haloCenterY"), 0, 100, 72);
-    next.haloRadius = ParseIntRangeOrDefault(Wh_GetIntSetting(L"haloRadius"), 0, 100, 24);
+    next.snowballMaxRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowballMaxRadiusPx"), 8, 120, 34);
+    next.leafPileMaxHeightPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"leafPileMaxHeightPx"), 8, 250, 54);
+    next.windowShakeSensitivity = ParseIntRangeOrDefault(Wh_GetIntSetting(L"windowShakeSensitivity"), 1, 100, 55);
+    next.windowInertiaFactor = ParseDoubleRangeOrDefault(readStr(L"windowInertiaFactor", L"0.75"), 0.0, 3.0, 0.75);
+    next.particleScale = ParseDoubleRangeOrDefault(readStr(L"particleScale", L"1.0"), 0.3, 4.0, 1.0);
 
     TryParseHexColorStrict(readStr(L"colorRain", L""), 0.78f, next.colorRain);
     TryParseHexColorStrict(readStr(L"colorSnow", L""), 0.92f, next.colorSnow);
@@ -1003,14 +995,6 @@ void LoadSettingsFromWh() {
     next.hasCustomMirageColor = TryParseHexColorStrict(readStr(L"colorMirage", L""), 0.25f, next.colorMirage);
     next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
     next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
-
-    next.cursorAction = ParseCursorAction(readStr(L"cursorAction", L"clear"));
-    next.cursorRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"cursorRadiusPx"), 10, 500, 95);
-    next.snowballMaxRadiusPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"snowballMaxRadiusPx"), 8, 120, 34);
-    next.leafPileMaxHeightPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"leafPileMaxHeightPx"), 8, 250, 54);
-    next.windowShakeSensitivity = ParseIntRangeOrDefault(Wh_GetIntSetting(L"windowShakeSensitivity"), 1, 100, 55);
-    next.windowInertiaFactor = ParseDoubleRangeOrDefault(readStr(L"windowInertiaFactor", L"0.75"), 0.0, 3.0, 0.75);
-    next.particleScale = ParseDoubleRangeOrDefault(readStr(L"particleScale", L"1.0"), 0.3, 4.0, 1.0);
 
     int fpsRaw = Wh_GetIntSetting(L"targetFps");
     next.targetFps = (fpsRaw == 30 || fpsRaw == 60) ? fpsRaw : 60;
@@ -1033,7 +1017,7 @@ std::string HttpGetUtf8(const std::wstring& url) {
 
     if (!InternetCrackUrlW(url.c_str(), 0, 0, &parts)) return {};
 
-    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.8", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
+    HINTERNET hSession = InternetOpenW(L"WindhawkWeatherMod/0.9", INTERNET_OPEN_TYPE_PRECONFIG, nullptr, nullptr, 0);
     if (!hSession) return {};
 
     DWORD flags = INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE;
@@ -1397,43 +1381,16 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
-int GetIntensityForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
-    if (!isSeasonal) {
-        if (kind == ObjectKind::Rain) return cfg.rainIntensity;
-        if (kind == ObjectKind::Snow) return cfg.snowIntensity;
-        if (kind == ObjectKind::Hail) return cfg.hailIntensity;
-    } else {
-        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesIntensity;
-        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowIntensity;
-        if (kind == ObjectKind::Petals) return cfg.petalsIntensity;
-    }
-    return 25;
+int GetIntensityForKind(const Settings& cfg, bool isSeasonal) {
+    return isSeasonal ? cfg.seasonalIntensity : cfg.precipIntensity;
 }
 
-int GetMaxAccumulatedForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
-    if (!isSeasonal) {
-        if (kind == ObjectKind::Rain) return cfg.rainMaxAccumulated;
-        if (kind == ObjectKind::Snow) return cfg.snowMaxAccumulated;
-        if (kind == ObjectKind::Hail) return cfg.hailMaxAccumulated;
-    } else {
-        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesMaxAccumulated;
-        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowMaxAccumulated;
-        if (kind == ObjectKind::Petals) return cfg.petalsMaxAccumulated;
-    }
-    return 0;
+int GetMaxAccumulatedForKind(const Settings& cfg, bool isSeasonal) {
+    return isSeasonal ? cfg.seasonalMaxAccumulated : cfg.precipMaxAccumulated;
 }
 
-double GetLifetimeMinForKind(const Settings& cfg, ObjectKind kind, bool isSeasonal) {
-    if (!isSeasonal) {
-        if (kind == ObjectKind::Rain) return cfg.rainLifetimeMin;
-        if (kind == ObjectKind::Snow) return cfg.snowLifetimeMin;
-        if (kind == ObjectKind::Hail) return cfg.hailLifetimeMin;
-    } else {
-        if (kind == ObjectKind::AutumnLeaves) return cfg.autumnLeavesLifetimeMin;
-        if (kind == ObjectKind::ExtraSnow) return cfg.extraSnowLifetimeMin;
-        if (kind == ObjectKind::Petals) return cfg.petalsLifetimeMin;
-    }
-    return -1.0;
+double GetLifetimeMinForKind(const Settings& cfg, bool isSeasonal) {
+    return isSeasonal ? cfg.seasonalLifetimeMin : cfg.precipLifetimeMin;
 }
 
 D2D1_COLOR_F GetColorForKind(const Settings& cfg, ObjectKind kind) {
@@ -1699,14 +1656,14 @@ void DrawVerticalGradientTint(ID2D1DCRenderTarget* rt, D2D1_COLOR_F topCol, D2D1
 }
 
 void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, const Settings& cfg, float strength, double timeSec) {
-    if (cfg.rainbowRadius <= 0 || strength <= 0.004f) return;
+    if (cfg.rainbowGeom.radius <= 0 || strength <= 0.004f) return;
 
     float minSide = static_cast<float>(std::min(g_canvasWidth, g_canvasHeight));
-    float radius = minSide * (static_cast<float>(cfg.rainbowRadius) / 100.0f);
+    float radius = minSide * (static_cast<float>(cfg.rainbowGeom.radius) / 100.0f);
     if (radius < 4.0f) return;
 
-    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.rainbowCenterX) / 100.0f);
-    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.rainbowCenterY) / 100.0f);
+    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.rainbowGeom.centerX) / 100.0f);
+    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.rainbowGeom.centerY) / 100.0f);
 
     const D2D1_COLOR_F spectrum[6] = {
         D2D1::ColorF(1.0f, 0.22f, 0.28f, 0.24f),
@@ -1738,14 +1695,14 @@ void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, const Settings& cfg, float stren
 }
 
 void DrawSmoothHalo(ID2D1DCRenderTarget* rt, const Settings& cfg, float strength, double timeSec) {
-    if (cfg.haloRadius <= 0 || strength <= 0.004f) return;
+    if (cfg.haloGeom.radius <= 0 || strength <= 0.004f) return;
 
     float minSide = static_cast<float>(std::min(g_canvasWidth, g_canvasHeight));
-    float radius = minSide * (static_cast<float>(cfg.haloRadius) / 100.0f);
+    float radius = minSide * (static_cast<float>(cfg.haloGeom.radius) / 100.0f);
     if (radius < 4.0f) return;
 
-    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.haloCenterX) / 100.0f);
-    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.haloCenterY) / 100.0f);
+    float cx = static_cast<float>(g_canvasWidth) * (static_cast<float>(cfg.haloGeom.centerX) / 100.0f);
+    float cy = static_cast<float>(g_canvasHeight) * (1.0f - static_cast<float>(cfg.haloGeom.centerY) / 100.0f);
 
     D2D1_COLOR_F base = cfg.hasCustomHaloColor ? cfg.colorHalo : D2D1::ColorF(1.0f, 0.96f, 0.84f, 0.30f);
     float pulse = 0.94f + 0.06f * static_cast<float>(std::sin(timeSec * 1.8));
@@ -2154,10 +2111,10 @@ void RenderWorkerLoop() {
         float seasonalVy = static_cast<float>(cfg.seasonalFallSpeedMps) * 32.0f * static_cast<float>(cfg.particleScale);
 
         size_t targetP = activePrecip
-            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, precipKind, false) * 1.4)
+            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, false) * 1.4)
             : 0;
         size_t targetS = activeSeasonal
-            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, seasonalKind, true) * 1.2)
+            ? static_cast<size_t>((g_canvasWidth / 1000.0) * GetIntensityForKind(cfg, true) * 1.2)
             : 0;
 
         std::vector<FallingItem> nextFalling;
@@ -2275,13 +2232,13 @@ void RenderWorkerLoop() {
         int bottomLimitY = ComputeBottomLimitY(cfg);
         float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
-        auto countAccumulated = [&](ObjectKind k, bool isS) -> int {
+        auto countAccumulated = [&](bool isS) -> int {
             int c = 0;
             for (const auto& fo : g_fallen) {
-                if (fo.kind == k && fo.isSeasonalLayer == isS) ++c;
+                if (fo.isSeasonalLayer == isS) ++c;
             }
             for (const auto& pile : g_piles) {
-                if (pile.kind == k && pile.isSeasonalLayer == isS) {
+                if (pile.isSeasonalLayer == isS) {
                     c += static_cast<int>(pile.members.size());
                 }
             }
@@ -2302,10 +2259,10 @@ void RenderWorkerLoop() {
             p.x += (vx + sway) * dt;
             p.y += vy * dt;
 
-            int maxAcc = GetMaxAccumulatedForKind(cfg, p.kind, p.isSeasonalLayer);
+            int maxAcc = GetMaxAccumulatedForKind(cfg, p.isSeasonalLayer);
             bool landed = false;
 
-            if (anyAccumEnabled && maxAcc > 0 && countAccumulated(p.kind, p.isSeasonalLayer) < maxAcc) {
+            if (anyAccumEnabled && maxAcc > 0 && countAccumulated(p.isSeasonalLayer) < maxAcc) {
                 if (cfg.enableWindowAccumulation && p.kind != ObjectKind::Rain) {
                     for (const auto& kv : g_windows) {
                         const RECT& wr = kv.second.rect;
@@ -2371,7 +2328,7 @@ void RenderWorkerLoop() {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
 
-            double lifeMin = GetLifetimeMinForKind(cfg, fo.kind, fo.isSeasonalLayer);
+            double lifeMin = GetLifetimeMinForKind(cfg, fo.isSeasonalLayer);
             if (lifeMin >= 0.0) {
                 float lifeSec = static_cast<float>(lifeMin * 60.0);
                 if (fo.ageSec >= lifeSec) {
@@ -2408,7 +2365,6 @@ void RenderWorkerLoop() {
             if (cfg.cursorAction == CursorActionMode::Move && !isPuddle && dist < cRad && cMoveLen > 0.6f) {
                 float dirX = cDx / cMoveLen;
                 if (isSnow) {
-                    // Ровно 1 снежный шарик на поверхность (внизу экрана или на конкретном окне)
                     Snowball* surfaceBall = nullptr;
                     for (auto& sb : g_snowballs) {
                         if (sb.onWindow == fo.onWindow && sb.hostWindow == fo.hostWindow && !sb.fallingOff) {
@@ -2436,7 +2392,6 @@ void RenderWorkerLoop() {
                     g_fallen.erase(g_fallen.begin() + i);
                     continue;
                 } else if (isFoliage) {
-                    // Ровно 1 куча листьев/лепестков на поверхность (внизу экрана или на конкретном окне)
                     FoliagePile* surfacePile = nullptr;
                     for (auto& pile : g_piles) {
                         if (pile.onWindow == fo.onWindow && pile.hostWindow == fo.hostWindow) {
@@ -2487,12 +2442,11 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление единых куч листьев и лепестков (по 1 на поверхность)
         for (size_t i = 0; i < g_piles.size();) {
             FoliagePile& pile = g_piles[i];
             pile.ageSec += dt;
 
-            double lifeMin = GetLifetimeMinForKind(cfg, pile.kind, pile.isSeasonalLayer);
+            double lifeMin = GetLifetimeMinForKind(cfg, pile.isSeasonalLayer);
             if (lifeMin >= 0.0 && pile.ageSec >= lifeMin * 60.0) {
                 for (auto& m : pile.members) m.alpha -= dt * 1.5f;
                 if (!pile.members.empty() && pile.members.front().alpha <= 0.03f) {
@@ -2536,12 +2490,11 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление снежных шариков (по 1 на поверхность): слияние с лежачими снежинками, катание и рассыпание при падении
         for (size_t i = 0; i < g_snowballs.size();) {
             Snowball& sb = g_snowballs[i];
             sb.ageSec += dt;
 
-            double lifeMin = GetLifetimeMinForKind(cfg, sb.kind, sb.isSeasonalLayer);
+            double lifeMin = GetLifetimeMinForKind(cfg, sb.isSeasonalLayer);
             if (lifeMin >= 0.0 && sb.ageSec >= lifeMin * 60.0) {
                 sb.alpha -= dt * 1.5f;
                 if (sb.alpha <= 0.03f) {
@@ -2597,8 +2550,8 @@ void RenderWorkerLoop() {
                 sb.relY += sb.vy * dt;
 
                 if (sb.relY + sb.radius >= bottomRelY) {
-                    int maxAcc = GetMaxAccumulatedForKind(cfg, sb.kind, sb.isSeasonalLayer);
-                    int curCount = countAccumulated(sb.kind, sb.isSeasonalLayer);
+                    int maxAcc = GetMaxAccumulatedForKind(cfg, sb.isSeasonalLayer);
+                    int curCount = countAccumulated(sb.isSeasonalLayer);
                     int flakesToSpawn = std::clamp(static_cast<int>(sb.radius / 3.0f), 4, 18);
                     for (int k = 0; k < flakesToSpawn && cfg.enableBottomAccumulation && curCount + k < maxAcc; ++k) {
                         FallenItem flake;
