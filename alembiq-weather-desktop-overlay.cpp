@@ -2,12 +2,35 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
-// @version         1.3.1
+// @version         1.3.2
 // @author          alembiq
 // @github          https://github.com/duschkopf/alembiq-weather-desktop-overlay/
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
+
+// ==WindhawkModReadme==
+/*
+A lightweight **Direct2D** weather and seasonal particle overlay for the Windows desktop (`explorer.exe`). It adds weather precipitation, seasonal falling objects, atmospheric effects, bottom snow accumulation, and an interactive snowman built from seasonal snow.
+
+### Features
+- **Weather & Seasonal Objects:**
+  - Precipitation modes: `off`, `auto`, `rain` (with small bottom puddles), `snow` (with smooth bottom snow cap and lifetime melting), and `hail`.
+  - Seasonal modes: `off`, `auto` (date-based), `autumn_leaves`, `extra_snow`, and `petals`.
+  - Switching seasonal modes cleans up seasonal artifacts from the previous season without affecting active weather precipitation.
+- **Snowman from Seasonal Snow (`extra_snow`):**
+  - Build up to 3 snowballs along the bottom boundary (base, body, head) with gentle magnetic snapping toward the base.
+  - Features appear progressively as tiers stack: stick arms and a button on the second ball, eyes and a carrot nose on the third ball.
+  - Left-clicking the snowman scatters it into snow chunks so you can build it again.
+- **Cursor Modes (`none`, `clear`, `push`):**
+  - `none`: Ignores the cursor.
+  - `clear`: Erases fallen items on touch; left-clicking the snowman scatters it.
+  - `push`: Helps roll and assemble the snowman from seasonal snow until complete, then gently pushes/scatters particles and snowballs.
+- **Atmosphere & Weather Sources:**
+  - Supports **Open-Meteo**, a custom JSON API URL, or a local weather file, with `auto` / `on` / `off` overrides for effects.
+  - Includes clear sky glow, partly cloudy, overcast, dust, fog, smog, thunderstorm lightning, aurora, mirage, and configurable rainbow and halo arcs.
+*/
+// ==/WindhawkModReadme==
 
 // ==WindhawkModSettings==
 /*
@@ -564,7 +587,7 @@ struct FallenItem {
 
 struct BottomSnowball {
     ObjectKind kind = ObjectKind::ExtraSnow;
-    int slot = 0; // 0 = база, 1 = тело (руки + пуговица), 2 = голова (глаза + морковка)
+    int slot = 0;
     float x = 0.0f;
     float vx = 0.0f;
     float radius = 8.0f;
@@ -612,6 +635,7 @@ constexpr float kPetalPalette[][3] = {
 
 std::mutex g_mutex;
 Settings g_settings;
+bool g_arcCacheDirty = true;
 
 bool g_hasForecastPrecip = false;
 ObjectKind g_forecastPrecip = ObjectKind::Rain;
@@ -646,8 +670,8 @@ bool IsSnowmanFullyAssembled(const std::vector<BottomSnowball>& balls) {
     return balls[1].stacked && balls[2].stacked;
 }
 
-void RefreshArcCache(CachedArcLayout& cache, const ArcGeometry& geom) {
-    if (cache.valid && cache.canvasW == g_canvasWidth && cache.canvasH == g_canvasHeight &&
+void RefreshArcCache(CachedArcLayout& cache, const ArcGeometry& geom, bool forceDirty) {
+    if (!forceDirty && cache.valid && cache.canvasW == g_canvasWidth && cache.canvasH == g_canvasHeight &&
         cache.pctRadius == geom.radius && cache.pctX == geom.centerX && cache.pctY == geom.centerY) {
         return;
     }
@@ -1053,12 +1077,9 @@ void LoadSettingsFromWh() {
     next.hasCustomRainbowColor = TryParseHexColorStrict(readStr(L"colorRainbow", L""), 0.35f, next.colorRainbow);
     next.hasCustomHaloColor = TryParseHexColorStrict(readStr(L"colorHalo", L""), 0.32f, next.colorHalo);
 
-    {
-        std::lock_guard<std::mutex> lock(g_mutex);
-        g_settings = next;
-    }
-    g_rainbowCache.valid = false;
-    g_haloCache.valid = false;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_settings = next;
+    g_arcCacheDirty = true;
 }
 
 std::string HttpGetUtf8(const std::wstring& url) {
@@ -1975,9 +1996,9 @@ void DrawVerticalGradientTint(ID2D1DCRenderTarget* rt, D2D1_COLOR_F topCol, D2D1
     stopCol->Release();
 }
 
-void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec) {
+void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec, bool forceDirty) {
     if (cfg.rainbowGeom.radius <= 0 || strength <= 0.004f) return;
-    RefreshArcCache(g_rainbowCache, cfg.rainbowGeom);
+    RefreshArcCache(g_rainbowCache, cfg.rainbowGeom, forceDirty);
     if (g_rainbowCache.radius < 4.0f) return;
 
     const D2D1_COLOR_F spectrum[6] = {
@@ -2005,9 +2026,9 @@ void DrawSmoothRainbow(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, con
     }
 }
 
-void DrawSmoothHalo(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec) {
+void DrawSmoothHalo(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, const Settings& cfg, float strength, double timeSec, bool forceDirty) {
     if (cfg.haloGeom.radius <= 0 || strength <= 0.004f) return;
-    RefreshArcCache(g_haloCache, cfg.haloGeom);
+    RefreshArcCache(g_haloCache, cfg.haloGeom, forceDirty);
     if (g_haloCache.radius < 4.0f) return;
 
     D2D1_COLOR_F base = cfg.hasCustomHaloColor ? cfg.colorHalo : D2D1::ColorF(1.0f, 0.96f, 0.84f, 0.30f);
@@ -2100,7 +2121,7 @@ void DrawSmoothMirage(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush, cons
     }
 }
 
-void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec) {
+void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomLimitY, float precipVx, double timeSec, bool forceArcDirty) {
     if (!g_overlayHwnd || !EnsureSurface(g_surface, g_canvasWidth, g_canvasHeight, cfg.colorSnow, cfg.hasCustomSnowColor)) return;
 
     float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
@@ -2146,8 +2167,8 @@ void RenderFrame(const Settings& cfg, const GeneralEffectsState& fx, int bottomL
     }
     if (fx.aurora) DrawSmoothAurora(g_surface.rt, g_surface.sharedBrush, cfg, k, timeSec);
     if (fx.mirage) DrawSmoothMirage(g_surface.rt, g_surface.sharedBrush, cfg, k, bottomLimitY, timeSec);
-    if (fx.rainbow) DrawSmoothRainbow(g_surface.rt, g_surface.sharedBrush, cfg, k, timeSec);
-    if (fx.halo) DrawSmoothHalo(g_surface.rt, g_surface.sharedBrush, cfg, k, timeSec);
+    if (fx.rainbow) DrawSmoothRainbow(g_surface.rt, g_surface.sharedBrush, cfg, k, timeSec, forceArcDirty);
+    if (fx.halo) DrawSmoothHalo(g_surface.rt, g_surface.sharedBrush, cfg, k, timeSec, forceArcDirty);
 
     if (fx.thunderstorm && g_lightning.timer > 0.0f) {
         D2D1_COLOR_F tc = cfg.hasCustomThunderstormColor ? cfg.colorThunderstorm : D2D1::ColorF(0.86f, 0.93f, 1.0f, 0.95f);
@@ -2216,7 +2237,10 @@ void RenderWorkerLoop() {
     wc.lpfnWndProc = OverlayWndProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.lpszClassName = L"WindhawkDesktopWeatherOverlayClass";
-    RegisterClassExW(&wc);
+    WNDCLASSEXW existing = {};
+    if (!GetClassInfoExW(wc.hInstance, wc.lpszClassName, &existing)) {
+        RegisterClassExW(&wc);
+    }
 
     std::mt19937 rng(static_cast<unsigned>(GetTickCount64()));
     auto startTime = std::chrono::steady_clock::now();
@@ -2240,6 +2264,7 @@ void RenderWorkerLoop() {
         GeneralEffectsState forecastFx;
         double forecastWindSpd = 0.0;
         int forecastWindSign = 0;
+        bool forceArcDirty = false;
         {
             std::lock_guard<std::mutex> lock(g_mutex);
             cfg = g_settings;
@@ -2248,6 +2273,8 @@ void RenderWorkerLoop() {
             forecastFx = g_forecastEffects;
             forecastWindSpd = g_forecastWindSpeedKmh;
             forecastWindSign = g_forecastWindDirSign;
+            forceArcDirty = g_arcCacheDirty;
+            g_arcCacheDirty = false;
         }
 
         if (cfg.pauseOnFullscreen && IsFullscreenAppActive()) {
@@ -2542,8 +2569,6 @@ void RenderWorkerLoop() {
         }
         prevLeftBtnDown = leftBtnDown;
 
-        // В режиме push: до полной сборки снеговика курсор собирает сезонный снег в шары;
-        // после полной сборки — больше не собирает снег, а расталкивает частицы как листья и лепестки.
         if (extraSnowActive && cfg.enableBottomAccumulation && !snowmanAssembled &&
             cfg.cursorAction == CursorActionMode::Push &&
             cMoveLen > 0.5f && std::abs(cY - bottomRelY) < cRad && !g_bottomSnowCap.cols.empty()) {
@@ -2594,7 +2619,6 @@ void RenderWorkerLoop() {
             }
         }
 
-        // Работа с опавшими листьями, лепестками, градом и лужами
         for (size_t i = 0; i < g_fallen.size();) {
             FallenItem& fo = g_fallen[i];
             fo.ageSec += dt;
@@ -2640,7 +2664,6 @@ void RenderWorkerLoop() {
             ++i;
         }
 
-        // Обновление шаров снеговика и сборка
         if (extraSnowActive && !g_bottomSnowballs.empty()) {
             float bx[kMaxSnowmanBalls] = {};
             float by[kMaxSnowmanBalls] = {};
@@ -2688,7 +2711,6 @@ void RenderWorkerLoop() {
                     std::abs(dx) < reach && std::abs(dy) < reach &&
                     (dx * dx + dy * dy) < reach * reach) {
                     if (snowmanAssembled) {
-                        // После полной сборки снеговика курсор в режиме push расталкивает его в стороны
                         float awaySign = (dx >= 0.0f) ? 1.0f : -1.0f;
                         float dist = std::sqrt(dx * dx + dy * dy);
                         float pushForce = (1.0f - dist / reach) * 140.0f * dt;
@@ -2730,7 +2752,7 @@ void RenderWorkerLoop() {
             }
         }
 
-        RenderFrame(cfg, activeFx, bottomLimitY, precipVx, timeSec);
+        RenderFrame(cfg, activeFx, bottomLimitY, precipVx, timeSec, forceArcDirty);
 
         int frameMs = 1000 / cfg.targetFps;
         std::this_thread::sleep_for(std::chrono::milliseconds(frameMs));
@@ -2745,7 +2767,6 @@ void RenderWorkerLoop() {
         g_d2dFactory->Release();
         g_d2dFactory = nullptr;
     }
-    UnregisterClassW(L"WindhawkDesktopWeatherOverlayClass", GetModuleHandleW(nullptr));
 }
 
 } // namespace
