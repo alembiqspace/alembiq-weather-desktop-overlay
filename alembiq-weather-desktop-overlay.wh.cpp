@@ -4,7 +4,7 @@
 // @description     Weather effects (snow, rain, fog, wind, clear) and seasonal particles (snow, rain, leaves, poplar fluff, sakura) under desktop icons with window accumulation and shake physics.
 // @version         1.4.0
 // @author          alembiq
-// @github          https://github.com/duschkopf
+// @github          https://github.com/alembiqspace
 // @include         explorer.exe
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32 -lole32
 // ==/WindhawkMod==
