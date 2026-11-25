@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Atmospheric effects and live weather forecast visualization for the Windows desktop (Direct2D weather and seasonal particle overlay)
-// @version         1.6.1
+// @version         1.6.2
 // @author          alembiq
 // @github          https://github.com/alembiqspace
 // @include         windhawk.exe
@@ -18,7 +18,7 @@ A lightweight **Direct2D** weather and atmosphere overlay for the Windows deskto
 - **Precipitation (`[Precipitation]`):** Supports `off`, `auto`, `rain`, `snow`, and `hail` with configurable fall direction, `auto` (forecast precipitation-driven speed scaled per snow/rain/hail) or `custom` fall speed, and intensity.
 - **Sky (`[Sky]`):** Intensity-based drifting clouds with edge fade at monitor borders, a UV-reactive sun with soft rays, and a real-phase moon with surface shading, independent movement modes, and cloud occlusion toggle.
 - **Effects (`[Effects]`):** System-clock time-of-day tinting, wind gusts, frost/heat tint, night stars, air quality haze/particles, floating pollen, flood-level water, and atmospheric layers (`clear`, `partlyCloudy`, `overcast`, `dust`, `fog`, `smog`, `thunderstorm`, `aurora`, `mirage`, `rainbow`).
-- **Draggable Temperature Button & Interactive Table:** Drag the circular button anywhere on screen or click it to open a smart-positioned table (auto-flipping left/right and up/down to fit the screen, with wheel scroll active only when taller than the viewport). Includes round mode buttons with visual state indicators, editable fields saved to Windhawk settings, and provider data status indicators.
+- **Draggable Temperature Button & Interactive Table:** Drag the circular button anywhere on screen or click it to open a smart-positioned table (auto-flipping left/right and up/down to fit the screen, with wheel scroll active only when taller than the viewport). Includes round mode buttons with visual state indicators, live editable fields, and provider data status indicators.
 
 ### Network & Privacy
 - **No Unsolicited Requests by Default:** `[Weather] Latitude/Longitude` (`coords`) is empty by default. No external network requests are made until you configure valid coordinates (or a custom JSON API URL) and have at least one forecast-driven setting enabled.
@@ -113,8 +113,8 @@ A lightweight **Direct2D** weather and atmosphere overlay for the Windows deskto
   $name: "[HUD] Button radius-center X/Y"
   $description: "Format: radius-centerX/centerY in % (0..100; radius 0 = off, 100 = min(width, height); X left->right, Y bottom->top). Default: 4-92/88."
 - hudButtonPos: ""
-  $name: "[HUD] Saved dragged button X/Y (0..1)"
-  $description: "Automatically saved relative position 'x/y' when dragging the button; empty uses hudButtonGeometry."
+  $name: "[HUD] Initial relative button X/Y (0..1)"
+  $description: "Optional relative position 'x/y' for the button; empty uses hudButtonGeometry."
 - forecastHudMarginPx: 16
   $name: "[HUD] Gap & screen margin (px)"
   $description: "Gap between table and button / screen edges in pixels (0 to 400). Invalid resets to 16."
@@ -1425,164 +1425,173 @@ void LoadSettingsFromWh() {
     }
 }
 
-void PersistButtonPosition(float cx, float cy) {
+void ApplyRuntimeButtonPosition(float cx, float cy) {
     if (g_canvasWidth <= 1 || g_canvasHeight <= 1) return;
     double rx = std::clamp(static_cast<double>(cx) / static_cast<double>(g_canvasWidth), 0.02, 0.98);
     double ry = std::clamp(static_cast<double>(cy) / static_cast<double>(g_canvasHeight), 0.02, 0.98);
-    wchar_t buf[64] = {};
-    swprintf_s(buf, L"%.4f/%.4f", rx, ry);
-    Wh_SetStringSetting(L"hudButtonPos", buf);
-    {
-        std::lock_guard<std::mutex> lock(g_mutex);
-        g_settings.hasCustomBtnPos = true;
-        g_settings.hudBtnRelX = rx;
-        g_settings.hudBtnRelY = ry;
-    }
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_settings.hasCustomBtnPos = true;
+    g_settings.hudBtnRelX = rx;
+    g_settings.hudBtnRelY = ry;
 }
 
 void CommitEditedFieldValue(HudFieldId fieldId, const std::wstring& val) {
     std::wstring trimmed = Trim(val);
-    switch (fieldId) {
-        case HudFieldId::Coords: {
-            Wh_SetStringSetting(L"coords", trimmed.c_str());
-            break;
-        }
-        case HudFieldId::CloudsIntensity: {
-            double v = 35.0;
-            if (TryParseDoubleStrict(trimmed, v)) {
-                Wh_SetIntSetting(L"cloudsIntensity", std::clamp(static_cast<int>(std::llround(v)), 0, 100));
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        switch (fieldId) {
+            case HudFieldId::Coords: {
+                g_settings.coordsRaw = trimmed;
+                g_settings.hasValidCoords = TryParseCoordsString(trimmed, g_settings.latitude, g_settings.longitude);
+                break;
             }
-            break;
-        }
-        case HudFieldId::SunUvOverride: {
-            Wh_SetStringSetting(L"sunUvOverride", trimmed.empty() ? L"-1" : trimmed.c_str());
-            break;
-        }
-        case HudFieldId::MoonPhaseOverride: {
-            Wh_SetStringSetting(L"moonPhaseOverride", trimmed.empty() ? L"-1" : trimmed.c_str());
-            break;
-        }
-        case HudFieldId::PrecipSpeedMps: {
-            double v = 6.5;
-            if (TryParseDoubleStrict(trimmed, v) && v >= 0.1 && v <= 50.0) {
-                Wh_SetStringSetting(L"precipSpeedMode", L"custom");
-                Wh_SetStringSetting(L"precipFallSpeedMps", trimmed.c_str());
+            case HudFieldId::CloudsIntensity: {
+                double v = 35.0;
+                if (TryParseDoubleStrict(trimmed, v)) {
+                    g_settings.cloudsIntensity = std::clamp(static_cast<int>(std::llround(v)), 0, 100);
+                }
+                break;
             }
-            break;
-        }
-        case HudFieldId::PrecipIntensity: {
-            double v = 25.0;
-            if (TryParseDoubleStrict(trimmed, v)) {
-                Wh_SetIntSetting(L"precipIntensity", std::clamp(static_cast<int>(std::llround(v)), 0, 100));
+            case HudFieldId::SunUvOverride: {
+                double v = -1.0;
+                if (trimmed.empty() || (TryParseDoubleStrict(trimmed, v) && std::abs(v + 1.0) < 1e-6)) {
+                    g_settings.sunUvOverride = -1.0;
+                } else if (TryParseDoubleStrict(trimmed, v) && v >= 0.0 && v <= 20.0) {
+                    g_settings.sunUvOverride = v;
+                }
+                break;
             }
-            break;
-        }
-        case HudFieldId::EffectsIntensity: {
-            double v = 25.0;
-            if (TryParseDoubleStrict(trimmed, v)) {
-                Wh_SetIntSetting(L"effectsIntensity", std::clamp(static_cast<int>(std::llround(v)), 0, 100));
+            case HudFieldId::MoonPhaseOverride: {
+                double v = -1.0;
+                if (trimmed.empty() || (TryParseDoubleStrict(trimmed, v) && std::abs(v + 1.0) < 1e-6)) {
+                    g_settings.moonPhaseOverride = -1.0;
+                } else if (TryParseDoubleStrict(trimmed, v) && v >= 0.0 && v <= 1.0) {
+                    g_settings.moonPhaseOverride = v;
+                }
+                break;
             }
-            break;
+            case HudFieldId::PrecipSpeedMps: {
+                double v = 6.5;
+                if (TryParseDoubleStrict(trimmed, v) && v >= 0.1 && v <= 50.0) {
+                    g_settings.precipSpeedMode = PrecipSpeedMode::Custom;
+                    g_settings.precipFallSpeedMps = v;
+                }
+                break;
+            }
+            case HudFieldId::PrecipIntensity: {
+                double v = 25.0;
+                if (TryParseDoubleStrict(trimmed, v)) {
+                    g_settings.precipIntensity = std::clamp(static_cast<int>(std::llround(v)), 0, 100);
+                }
+                break;
+            }
+            case HudFieldId::EffectsIntensity: {
+                double v = 25.0;
+                if (TryParseDoubleStrict(trimmed, v)) {
+                    g_settings.effectsIntensity = std::clamp(static_cast<int>(std::llround(v)), 0, 100);
+                }
+                break;
+            }
+            case HudFieldId::SkyPrecipColors: {
+                ApplySkyPrecipColors(trimmed, g_settings);
+                break;
+            }
+            case HudFieldId::EffectsColors: {
+                ApplyEffectsColors(trimmed, g_settings);
+                break;
+            }
+            default:
+                break;
         }
-        case HudFieldId::SkyPrecipColors: {
-            Wh_SetStringSetting(L"skyPrecipColors", trimmed.c_str());
-            break;
-        }
-        case HudFieldId::EffectsColors: {
-            Wh_SetStringSetting(L"effectsColors", trimmed.c_str());
-            break;
-        }
-        default:
-            break;
+        g_arcCacheDirty = true;
     }
-    LoadSettingsFromWh();
+    if (g_weatherWakeEvent) {
+        SetEvent(g_weatherWakeEvent);
+    }
 }
 
 void CycleSettingOption(const std::wstring& actionId) {
-    auto nextTri = [](TriStateMode m) -> LPCWSTR {
-        if (m == TriStateMode::Auto) return L"on";
-        if (m == TriStateMode::On) return L"off";
-        return L"auto";
+    auto nextTri = [](TriStateMode m) -> TriStateMode {
+        if (m == TriStateMode::Auto) return TriStateMode::On;
+        if (m == TriStateMode::On) return TriStateMode::Off;
+        return TriStateMode::Auto;
     };
 
-    Settings cur;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
-        cur = g_settings;
+        Settings& cur = g_settings;
+
+        if (actionId == L"cycle_perf") {
+            cur.performanceMode = (cur.performanceMode == PerformanceMode::Low) ? PerformanceMode::Medium :
+                                  ((cur.performanceMode == PerformanceMode::Medium) ? PerformanceMode::High : PerformanceMode::Low);
+        } else if (actionId == L"cycle_source") {
+            cur.primarySource = (cur.primarySource == L"open_meteo") ? L"custom_api" :
+                                ((cur.primarySource == L"custom_api") ? L"local_file" :
+                                 ((cur.primarySource == L"local_file") ? L"off" : L"open_meteo"));
+        } else if (actionId == L"cycle_clouds") {
+            cur.cloudsMode = nextTri(cur.cloudsMode);
+        } else if (actionId == L"cycle_sun") {
+            cur.sunMode = nextTri(cur.sunMode);
+        } else if (actionId == L"cycle_moon") {
+            cur.moonMode = nextTri(cur.moonMode);
+        } else if (actionId == L"toggle_celestial_front") {
+            cur.celestialInFrontOfClouds = !cur.celestialInFrontOfClouds;
+        } else if (actionId == L"cycle_precip_mode") {
+            cur.precipitationMode = (cur.precipitationMode == PrecipMode::Auto) ? PrecipMode::Rain :
+                                    ((cur.precipitationMode == PrecipMode::Rain) ? PrecipMode::Snow :
+                                     ((cur.precipitationMode == PrecipMode::Snow) ? PrecipMode::Hail :
+                                      ((cur.precipitationMode == PrecipMode::Hail) ? PrecipMode::Off : PrecipMode::Auto)));
+        } else if (actionId == L"cycle_precip_dir") {
+            cur.precipFallDirection = (cur.precipFallDirection == FallDirMode::Auto) ? FallDirMode::Down :
+                                        ((cur.precipFallDirection == FallDirMode::Down) ? FallDirMode::DownLeft :
+                                         ((cur.precipFallDirection == FallDirMode::DownLeft) ? FallDirMode::DownRight : FallDirMode::Auto));
+        } else if (actionId == L"cycle_precip_speed") {
+            cur.precipSpeedMode = (cur.precipSpeedMode == PrecipSpeedMode::Auto) ? PrecipSpeedMode::Custom : PrecipSpeedMode::Auto;
+        } else if (actionId == L"cycle_tod") {
+            cur.timeOfDayMode = (cur.timeOfDayMode == TimeOfDayMode::Auto) ? TimeOfDayMode::Dawn :
+                                ((cur.timeOfDayMode == TimeOfDayMode::Dawn) ? TimeOfDayMode::Day :
+                                 ((cur.timeOfDayMode == TimeOfDayMode::Day) ? TimeOfDayMode::Sunset :
+                                  ((cur.timeOfDayMode == TimeOfDayMode::Sunset) ? TimeOfDayMode::Night :
+                                   ((cur.timeOfDayMode == TimeOfDayMode::Night) ? TimeOfDayMode::Off : TimeOfDayMode::Auto))));
+        } else if (actionId == L"cycle_fx_clear") {
+            cur.effectClear = nextTri(cur.effectClear);
+        } else if (actionId == L"cycle_fx_partly") {
+            cur.effectPartlyCloudy = nextTri(cur.effectPartlyCloudy);
+        } else if (actionId == L"cycle_fx_overcast") {
+            cur.effectOvercast = nextTri(cur.effectOvercast);
+        } else if (actionId == L"cycle_fx_dust") {
+            cur.effectDust = nextTri(cur.effectDust);
+        } else if (actionId == L"cycle_fx_fog") {
+            cur.effectFog = nextTri(cur.effectFog);
+        } else if (actionId == L"cycle_fx_smog") {
+            cur.effectSmog = nextTri(cur.effectSmog);
+        } else if (actionId == L"cycle_fx_storm") {
+            cur.effectThunderstorm = nextTri(cur.effectThunderstorm);
+        } else if (actionId == L"cycle_fx_aurora") {
+            cur.effectAurora = nextTri(cur.effectAurora);
+        } else if (actionId == L"cycle_fx_mirage") {
+            cur.effectMirage = nextTri(cur.effectMirage);
+        } else if (actionId == L"cycle_fx_rainbow") {
+            cur.effectRainbow = nextTri(cur.effectRainbow);
+        } else if (actionId == L"cycle_fx_wind") {
+            cur.effectWindStreams = nextTri(cur.effectWindStreams);
+        } else if (actionId == L"cycle_fx_thermal") {
+            cur.effectThermal = nextTri(cur.effectThermal);
+        } else if (actionId == L"cycle_fx_stars") {
+            cur.effectNightStars = nextTri(cur.effectNightStars);
+        } else if (actionId == L"cycle_fx_aq") {
+            cur.effectAirQuality = nextTri(cur.effectAirQuality);
+        } else if (actionId == L"cycle_fx_pollen") {
+            cur.effectPollen = nextTri(cur.effectPollen);
+        } else if (actionId == L"cycle_fx_flood") {
+            cur.effectFloodWater = nextTri(cur.effectFloodWater);
+        }
+        g_arcCacheDirty = true;
     }
 
-    if (actionId == L"cycle_perf") {
-        LPCWSTR nxt = (cur.performanceMode == PerformanceMode::Low) ? L"medium" :
-                      ((cur.performanceMode == PerformanceMode::Medium) ? L"high" : L"low");
-        Wh_SetStringSetting(L"performanceMode", nxt);
-    } else if (actionId == L"cycle_source") {
-        LPCWSTR nxt = (cur.primarySource == L"open_meteo") ? L"custom_api" :
-                      ((cur.primarySource == L"custom_api") ? L"local_file" :
-                       ((cur.primarySource == L"local_file") ? L"off" : L"open_meteo"));
-        Wh_SetStringSetting(L"primarySource", nxt);
-    } else if (actionId == L"cycle_clouds") {
-        Wh_SetStringSetting(L"cloudsMode", nextTri(cur.cloudsMode));
-    } else if (actionId == L"cycle_sun") {
-        Wh_SetStringSetting(L"sunMode", nextTri(cur.sunMode));
-    } else if (actionId == L"cycle_moon") {
-        Wh_SetStringSetting(L"moonMode", nextTri(cur.moonMode));
-    } else if (actionId == L"toggle_celestial_front") {
-        Wh_SetIntSetting(L"celestialInFrontOfClouds", cur.celestialInFrontOfClouds ? 0 : 1);
-    } else if (actionId == L"cycle_precip_mode") {
-        LPCWSTR nxt = (cur.precipitationMode == PrecipMode::Auto) ? L"rain" :
-                      ((cur.precipitationMode == PrecipMode::Rain) ? L"snow" :
-                       ((cur.precipitationMode == PrecipMode::Snow) ? L"hail" :
-                        ((cur.precipitationMode == PrecipMode::Hail) ? L"off" : L"auto")));
-        Wh_SetStringSetting(L"precipitationMode", nxt);
-    } else if (actionId == L"cycle_precip_dir") {
-        LPCWSTR nxt = (cur.precipFallDirection == FallDirMode::Auto) ? L"down" :
-                      ((cur.precipFallDirection == FallDirMode::Down) ? L"down_left" :
-                       ((cur.precipFallDirection == FallDirMode::DownLeft) ? L"down_right" : L"auto"));
-        Wh_SetStringSetting(L"precipFallDirection", nxt);
-    } else if (actionId == L"cycle_precip_speed") {
-        Wh_SetStringSetting(L"precipSpeedMode", cur.precipSpeedMode == PrecipSpeedMode::Auto ? L"custom" : L"auto");
-    } else if (actionId == L"cycle_tod") {
-        LPCWSTR nxt = (cur.timeOfDayMode == TimeOfDayMode::Auto) ? L"dawn" :
-                      ((cur.timeOfDayMode == TimeOfDayMode::Dawn) ? L"day" :
-                       ((cur.timeOfDayMode == TimeOfDayMode::Day) ? L"sunset" :
-                        ((cur.timeOfDayMode == TimeOfDayMode::Sunset) ? L"night" :
-                         ((cur.timeOfDayMode == TimeOfDayMode::Night) ? L"off" : L"auto"))));
-        Wh_SetStringSetting(L"timeOfDayMode", nxt);
-    } else if (actionId == L"cycle_fx_clear") {
-        Wh_SetStringSetting(L"effectClear", nextTri(cur.effectClear));
-    } else if (actionId == L"cycle_fx_partly") {
-        Wh_SetStringSetting(L"effectPartlyCloudy", nextTri(cur.effectPartlyCloudy));
-    } else if (actionId == L"cycle_fx_overcast") {
-        Wh_SetStringSetting(L"effectOvercast", nextTri(cur.effectOvercast));
-    } else if (actionId == L"cycle_fx_dust") {
-        Wh_SetStringSetting(L"effectDust", nextTri(cur.effectDust));
-    } else if (actionId == L"cycle_fx_fog") {
-        Wh_SetStringSetting(L"effectFog", nextTri(cur.effectFog));
-    } else if (actionId == L"cycle_fx_smog") {
-        Wh_SetStringSetting(L"effectSmog", nextTri(cur.effectSmog));
-    } else if (actionId == L"cycle_fx_storm") {
-        Wh_SetStringSetting(L"effectThunderstorm", nextTri(cur.effectThunderstorm));
-    } else if (actionId == L"cycle_fx_aurora") {
-        Wh_SetStringSetting(L"effectAurora", nextTri(cur.effectAurora));
-    } else if (actionId == L"cycle_fx_mirage") {
-        Wh_SetStringSetting(L"effectMirage", nextTri(cur.effectMirage));
-    } else if (actionId == L"cycle_fx_rainbow") {
-        Wh_SetStringSetting(L"effectRainbow", nextTri(cur.effectRainbow));
-    } else if (actionId == L"cycle_fx_wind") {
-        Wh_SetStringSetting(L"effectWindStreams", nextTri(cur.effectWindStreams));
-    } else if (actionId == L"cycle_fx_thermal") {
-        Wh_SetStringSetting(L"effectThermal", nextTri(cur.effectThermal));
-    } else if (actionId == L"cycle_fx_stars") {
-        Wh_SetStringSetting(L"effectNightStars", nextTri(cur.effectNightStars));
-    } else if (actionId == L"cycle_fx_aq") {
-        Wh_SetStringSetting(L"effectAirQuality", nextTri(cur.effectAirQuality));
-    } else if (actionId == L"cycle_fx_pollen") {
-        Wh_SetStringSetting(L"effectPollen", nextTri(cur.effectPollen));
-    } else if (actionId == L"cycle_fx_flood") {
-        Wh_SetStringSetting(L"effectFloodWater", nextTri(cur.effectFloodWater));
+    if (g_weatherWakeEvent) {
+        SetEvent(g_weatherWakeEvent);
     }
-
-    LoadSettingsFromWh();
 }
 
 std::string HttpGetUtf8(const std::wstring& url) {
@@ -2373,7 +2382,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (wasDragging) {
             ReleaseCapture();
             if (didMove) {
-                PersistButtonPosition(finalCx, finalCy);
+                ApplyRuntimeButtonPosition(finalCx, finalCy);
             } else {
                 bool nextExp = !g_hudExpanded.load();
                 g_hudExpanded.store(nextExp);
@@ -3560,7 +3569,6 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
         bool needsScroll = totalContentH > availH;
         float cardH = std::min(totalContentH, availH);
 
-        // Выбор стороны раскрытия: предпочтительно вправо и вверх, при нехватке места – влево или вниз
         float spaceRight = (primaryMon.left + primaryMon.width - gap) - (btnCx + btnR + gap);
         float spaceLeft = (btnCx - btnR - gap) - (primaryMon.left + gap);
         float left = (spaceRight >= kHudCardWidth)
@@ -3717,7 +3725,6 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
         g_hudControls = std::move(nextControls);
     }
 
-    // Плавающая круглая кнопка: температура или крестик "×" при открытой таблице
     brush->SetOpacity(1.0f);
     brush->SetColor(cfg.colorHudBg);
     rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(btnCx, btnCy), btnR, btnR), brush);
