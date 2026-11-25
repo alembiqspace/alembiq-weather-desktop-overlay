@@ -9,17 +9,6 @@
 // @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32
 // ==/WindhawkMod==
 
-// ==WindhawkMod==
-// @id              alembiq-weather-desktop-overlay
-// @name            Desktop Weather & Particles Overlay
-// @description     Direct2D weather precipitation, atmospheric, ecological, and flood-level overlay for the Windows desktop with live forecast integration, interactive floating HUD, and performance quality scaling.
-// @version         2.9.15
-// @author          alembiq
-// @github          https://github.com/alembiqspace
-// @include         windhawk.exe
-// @compilerOptions -ld2d1 -ldwrite -lwininet -luser32 -lgdi32 -lshell32
-// ==/WindhawkMod==
-
 // ==WindhawkModReadme==
 /*
 A lightweight **Direct2D** weather and atmosphere overlay for the Windows desktop. It brings live weather precipitation, volumetric-style drifting clouds, a UV-reactive sun and lunar-phase moon, atmospheric layers, air quality, pollen, flood-level water, and a draggable temperature button with an interactive control & forecast table without cluttering icons or windows.
