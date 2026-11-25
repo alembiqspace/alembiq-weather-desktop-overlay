@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Atmospheric effects and live weather forecast visualization for the Windows desktop (Direct2D weather and seasonal particle overlay)
-// @version         1.6.2
+// @version         1.6.3
 // @author          alembiq
 // @github          https://github.com/alembiqspace
 // @include         windhawk.exe
@@ -18,11 +18,11 @@ A lightweight **Direct2D** weather and atmosphere overlay for the Windows deskto
 - **Precipitation (`[Precipitation]`):** Supports `off`, `auto`, `rain`, `snow`, and `hail` with configurable fall direction, `auto` (forecast precipitation-driven speed scaled per snow/rain/hail) or `custom` fall speed, and intensity.
 - **Sky (`[Sky]`):** Intensity-based drifting clouds with edge fade at monitor borders, a UV-reactive sun with soft rays, and a real-phase moon with surface shading, independent movement modes, and cloud occlusion toggle.
 - **Effects (`[Effects]`):** System-clock time-of-day tinting, wind gusts, frost/heat tint, night stars, air quality haze/particles, floating pollen, flood-level water, and atmospheric layers (`clear`, `partlyCloudy`, `overcast`, `dust`, `fog`, `smog`, `thunderstorm`, `aurora`, `mirage`, `rainbow`).
-- **Draggable Temperature Button & Interactive Table:** Drag the circular button anywhere on screen or click it to open a smart-positioned table (auto-flipping left/right and up/down to fit the screen, with wheel scroll active only when taller than the viewport). Includes round mode buttons with visual state indicators, live editable fields, and provider data status indicators.
+- **Draggable Temperature Button & Interactive Table:** Drag the circular button (sized in pixels with configurable font size) or click it to open an auto-sized table that flips left/right and up/down to fit the screen. Sections (`[Sky]`, `[Precipitation]`, `[Effects]`) start collapsed and expand one at a time, with single-line rounded buttons and manual provider sync.
 
 ### Network & Privacy
 - **No Unsolicited Requests by Default:** `[Weather] Latitude/Longitude` (`coords`) is empty by default. No external network requests are made until you configure valid coordinates (or a custom JSON API URL) and have at least one forecast-driven setting enabled.
-- **What Is Sent & When:** When `primarySource` is set to `open_meteo` with valid `lat/lon` coordinates and forecast data is needed, the mod sends an HTTPS `GET` request to `https://api.open-meteo.com/v1/forecast` (and `https://air-quality-api.open-meteo.com/v1/air-quality` when air quality or pollen is in `auto`) containing only your configured coordinates and requested fields. Requests run on startup, on settings changes, every `[Weather] Update interval (min)` (default: `30` minutes), and every `60` seconds after a failed attempt.
+- **What Is Sent & When:** When `primarySource` is set to `open_meteo` with valid `lat/lon` coordinates and forecast data is needed, the mod sends an HTTPS `GET` request to `https://api.open-meteo.com/v1/forecast` (and `https://air-quality-api.open-meteo.com/v1/air-quality` when air quality or pollen is in `auto`) containing only your configured coordinates and requested fields. Requests run on startup, on settings changes, on manual sync, every `[Weather] Update interval (min)` (default: `30` minutes), and every `60` seconds after a failed attempt.
 - **How to Disable:** Set `[Weather] Primary source` (`primarySource`) to `off`, leave `[Weather] Latitude/Longitude` (`coords`) empty, or switch forecast-dependent settings away from `auto` / `on`.
 */
 // ==/WindhawkModReadme==
@@ -109,15 +109,21 @@ A lightweight **Direct2D** weather and atmosphere overlay for the Windows deskto
   $options:
     - off: Off
     - on: On
+- hudButtonRadiusPx: 26
+  $name: "[HUD] Button radius (px)"
+  $description: "Circular temperature button radius in pixels (14 to 96). Default: 26."
+- hudFontSizePx: 12
+  $name: "[HUD] Font size (px)"
+  $description: "Base font size in pixels for the HUD table (9 to 22). Default: 12."
 - hudButtonGeometry: "4-92/88"
-  $name: "[HUD] Button radius-center X/Y"
-  $description: "Format: radius-centerX/centerY in % (0..100; radius 0 = off, 100 = min(width, height); X left->right, Y bottom->top). Default: 4-92/88."
+  $name: "[HUD] Fallback button center X/Y (%)"
+  $description: "Format: radius-centerX/centerY in % (0..100; X left->right, Y bottom->top) when no dragged position is set. Default: 4-92/88."
 - hudButtonPos: ""
   $name: "[HUD] Initial relative button X/Y (0..1)"
   $description: "Optional relative position 'x/y' for the button; empty uses hudButtonGeometry."
-- forecastHudMarginPx: 16
+- forecastHudMarginPx: 14
   $name: "[HUD] Gap & screen margin (px)"
-  $description: "Gap between table and button / screen edges in pixels (0 to 400). Invalid resets to 16."
+  $description: "Gap between table and button / screen edges in pixels (0 to 400). Invalid resets to 14."
 - forecastHudOpacity: 84
   $name: "[HUD] Background opacity (%)"
   $description: "Button and table background opacity (15 to 100). Invalid resets to 84."
@@ -357,17 +363,17 @@ A lightweight **Direct2D** weather and atmosphere overlay for the Windows deskto
     - on: On
     - off: Off
 
-# --- 7. COLORS (2 SHARED '/' VARIABLES) ---
-- skyPrecipColors: "/////"
+# --- 7. COLORS (CONFIG ONLY, '/' LISTS) ---
+- skyPrecipColors: "#6BB8FF/#FBFDFF/#C2E6FF/#E6ECF7/#FFD152/#DCE7FF"
   $name: "[Sky + Precipitation] Colors (#RRGGBB/...)"
   $description: "6 HEX colors separated by '/': rain/snow/hail/clouds/sun/moon (empty segment = default)."
-- effectsColors: "/////////////"
+- effectsColors: "#FFDA9E/#FFE9A8/#E3EAF2/#8C96A6/#D6AE73/#D1D9E0/#8F7F6B/#D6EBFF/#38EB9E/#FADBA8/#FFC759/#D1A857/#F7E36B/#2980C2"
   $name: "[Effects] Colors (#RRGGBB/...)"
   $description: "14 HEX colors separated by '/': timeOfDay/clear/partlyCloudy/overcast/dust/fog/smog/thunderstorm/aurora/mirage/rainbow/airQuality/pollen/floodWater (empty segment = default)."
-- colorHudBg: ""
+- colorHudBg: "#141A26"
   $name: "[HUD] Background (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default dark slate card background. Invalid HEX resets to default."
-- colorHudText: ""
+- colorHudText: "#F0F5FC"
   $name: "[HUD] Text (#RRGGBB)"
   $description: "Custom HEX (#RRGGBB) or empty for default crisp off-white text. Invalid HEX resets to default."
 */
@@ -402,7 +408,6 @@ constexpr wchar_t kOverlayWndClass[] = L"WindhawkDesktopWeatherOverlayClass";
 constexpr double kSynodicMonthDays = 29.530588853;
 constexpr double kReferenceNewMoonEpochSec = 947182440.0;
 constexpr double kPi = 3.14159265358979323846;
-constexpr float kHudCardWidth = 410.0f;
 
 enum class ObjectKind {
     Rain,
@@ -465,10 +470,11 @@ enum class FallDirMode {
     DownRight
 };
 
-enum class ProviderDataStatus {
-    Ok,
-    Stale,
-    Unavailable
+enum class ExpandedSection {
+    None,
+    Sky,
+    Precipitation,
+    Effects
 };
 
 enum class HudFieldId {
@@ -479,9 +485,7 @@ enum class HudFieldId {
     MoonPhaseOverride,
     PrecipSpeedMps,
     PrecipIntensity,
-    EffectsIntensity,
-    SkyPrecipColors,
-    EffectsColors
+    EffectsIntensity
 };
 
 struct GeneralEffectsState {
@@ -540,7 +544,6 @@ struct CustomInsetsPx {
 
 struct ForecastSnapshot {
     bool valid = false;
-    ULONGLONG lastUpdateTickMs = 0;
     int weatherCode = -1;
     double tempC = 0.0;
     double apparentTempC = 15.0;
@@ -590,11 +593,13 @@ struct Settings {
     int updateIntervalMin = 30;
 
     bool forecastHudEnabled = false;
+    float hudButtonRadiusPx = 26.0f;
+    float hudFontSizePx = 12.0f;
     ArcGeometry hudButtonGeom{4, 92, 88};
     bool hasCustomBtnPos = false;
     double hudBtnRelX = 0.92;
     double hudBtnRelY = 0.12;
-    int forecastHudMarginPx = 16;
+    int forecastHudMarginPx = 14;
     int forecastHudOpacity = 84;
 
     TimeOfDayMode timeOfDayMode = TimeOfDayMode::Auto;
@@ -640,9 +645,6 @@ struct Settings {
     TriStateMode effectFloodWater = TriStateMode::Auto;
 
     ArcGeometry rainbowGeom{55, 50, 15};
-
-    std::wstring skyPrecipColorsRaw = L"/////";
-    std::wstring effectsColorsRaw = L"/////////////";
 
     bool hasCustomSnowColor = false;
     D2D1_COLOR_F colorRain = D2D1::ColorF(0.42f, 0.72f, 1.0f, 0.78f);
@@ -692,11 +694,10 @@ struct Settings {
 
 struct InteractiveControl {
     D2D1_RECT_F rect{};
-    bool isRound = false;
     std::wstring actionId;
     HudFieldId fieldId = HudFieldId::None;
-    std::wstring badgeText;
-    D2D1_COLOR_F badgeTint = D2D1::ColorF(0.35f, 0.65f, 1.0f, 0.85f);
+    std::wstring btnText;
+    D2D1_COLOR_F tint = D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.90f);
 };
 
 struct FallingItem {
@@ -743,7 +744,7 @@ std::atomic<bool> g_running{false};
 std::atomic<bool> g_hudExpanded{false};
 std::atomic<float> g_hudBtnCx{0.0f};
 std::atomic<float> g_hudBtnCy{0.0f};
-std::atomic<float> g_hudBtnR{0.0f};
+std::atomic<float> g_hudBtnR{26.0f};
 
 std::mutex g_hudUiMutex;
 bool g_draggingHudBtn = false;
@@ -754,6 +755,7 @@ float g_dragStartBtnCx = 0.0f;
 float g_dragStartBtnCy = 0.0f;
 int g_hudScrollPx = 0;
 int g_hudMaxScrollPx = 0;
+ExpandedSection g_expandedSection = ExpandedSection::None;
 HudFieldId g_focusedField = HudFieldId::None;
 std::wstring g_editBuffer;
 std::vector<InteractiveControl> g_hudControls;
@@ -763,7 +765,8 @@ IDWriteFactory* g_dwriteFactory = nullptr;
 IDWriteTextFormat* g_hudTitleFormat = nullptr;
 IDWriteTextFormat* g_hudBodyFormat = nullptr;
 IDWriteTextFormat* g_hudCircleFormat = nullptr;
-IDWriteTextFormat* g_hudBadgeFormat = nullptr;
+IDWriteTextFormat* g_hudPillFormat = nullptr;
+float g_cachedFontSizePx = 0.0f;
 CachedSurface g_surface;
 CachedArcLayout g_rainbowCache;
 
@@ -1274,7 +1277,6 @@ bool TryParseHexColorStrict(const std::wstring& hexRaw, float defaultAlpha, D2D1
 }
 
 void ApplySkyPrecipColors(const std::wstring& raw, Settings& cfg) {
-    cfg.skyPrecipColorsRaw = raw;
     std::vector<std::wstring> parts = SplitSlashTokens(raw);
     if (parts.size() > 0) TryParseHexColorStrict(parts[0], 0.78f, cfg.colorRain);
     if (parts.size() > 1) cfg.hasCustomSnowColor = TryParseHexColorStrict(parts[1], 0.96f, cfg.colorSnow);
@@ -1285,7 +1287,6 @@ void ApplySkyPrecipColors(const std::wstring& raw, Settings& cfg) {
 }
 
 void ApplyEffectsColors(const std::wstring& raw, Settings& cfg) {
-    cfg.effectsColorsRaw = raw;
     std::vector<std::wstring> parts = SplitSlashTokens(raw);
     if (parts.size() > 0) cfg.hasCustomTimeOfDayColor = TryParseHexColorStrict(parts[0], 0.16f, cfg.colorTimeOfDay);
     if (parts.size() > 1) cfg.hasCustomClearColor = TryParseHexColorStrict(parts[1], 0.25f, cfg.colorClear);
@@ -1332,6 +1333,8 @@ void LoadSettingsFromWh() {
     next.updateIntervalMin = ParseIntRangeOrDefault(Wh_GetIntSetting(L"updateIntervalMin"), 1, 1440, 30);
 
     next.forecastHudEnabled = ToLower(Trim(readStr(L"forecastHudMode", L"off"))) == L"on";
+    next.hudButtonRadiusPx = static_cast<float>(ParseIntRangeOrDefault(Wh_GetIntSetting(L"hudButtonRadiusPx"), 14, 96, 26));
+    next.hudFontSizePx = static_cast<float>(ParseIntRangeOrDefault(Wh_GetIntSetting(L"hudFontSizePx"), 9, 22, 12));
     ParseArcGeometryString(readStr(L"hudButtonGeometry", L"4-92/88"), ArcGeometry{4, 92, 88}, next.hudButtonGeom);
 
     std::wstring savedBtnPos = readStr(L"hudButtonPos", L"");
@@ -1347,7 +1350,7 @@ void LoadSettingsFromWh() {
         }
     }
 
-    next.forecastHudMarginPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"forecastHudMarginPx"), 0, 400, 16);
+    next.forecastHudMarginPx = ParseIntRangeOrDefault(Wh_GetIntSetting(L"forecastHudMarginPx"), 0, 400, 14);
     next.forecastHudOpacity = ParseIntRangeOrDefault(Wh_GetIntSetting(L"forecastHudOpacity"), 15, 100, 84);
 
     next.timeOfDayMode = ParseTimeOfDayMode(readStr(L"timeOfDayMode", L"auto"));
@@ -1406,14 +1409,14 @@ void LoadSettingsFromWh() {
 
     ParseArcGeometryString(readStr(L"rainbowGeometry", L"55-50/15"), ArcGeometry{55, 50, 15}, next.rainbowGeom);
 
-    ApplySkyPrecipColors(readStr(L"skyPrecipColors", L"/////"), next);
-    ApplyEffectsColors(readStr(L"effectsColors", L"/////////////"), next);
+    ApplySkyPrecipColors(readStr(L"skyPrecipColors", L"#6BB8FF/#FBFDFF/#C2E6FF/#E6ECF7/#FFD152/#DCE7FF"), next);
+    ApplyEffectsColors(readStr(L"effectsColors", L"#FFDA9E/#FFE9A8/#E3EAF2/#8C96A6/#D6AE73/#D1D9E0/#8F7F6B/#D6EBFF/#38EB9E/#FADBA8/#FFC759/#D1A857/#F7E36B/#2980C2"), next);
 
     float bgAlpha = std::clamp(static_cast<float>(next.forecastHudOpacity) / 100.0f, 0.15f, 1.0f);
-    if (!TryParseHexColorStrict(readStr(L"colorHudBg", L""), bgAlpha, next.colorHudBg)) {
+    if (!TryParseHexColorStrict(readStr(L"colorHudBg", L"#141A26"), bgAlpha, next.colorHudBg)) {
         next.colorHudBg = D2D1::ColorF(0.08f, 0.10f, 0.15f, bgAlpha);
     }
-    TryParseHexColorStrict(readStr(L"colorHudText", L""), 0.96f, next.colorHudText);
+    TryParseHexColorStrict(readStr(L"colorHudText", L"#F0F5FC"), 0.96f, next.colorHudText);
 
     {
         std::lock_guard<std::mutex> lock(g_mutex);
@@ -1492,14 +1495,6 @@ void CommitEditedFieldValue(HudFieldId fieldId, const std::wstring& val) {
                 }
                 break;
             }
-            case HudFieldId::SkyPrecipColors: {
-                ApplySkyPrecipColors(trimmed, g_settings);
-                break;
-            }
-            case HudFieldId::EffectsColors: {
-                ApplyEffectsColors(trimmed, g_settings);
-                break;
-            }
             default:
                 break;
         }
@@ -1510,7 +1505,32 @@ void CommitEditedFieldValue(HudFieldId fieldId, const std::wstring& val) {
     }
 }
 
+void ToggleExclusiveSection(ExpandedSection sec) {
+    std::lock_guard<std::mutex> lock(g_hudUiMutex);
+    g_expandedSection = (g_expandedSection == sec) ? ExpandedSection::None : sec;
+    g_hudScrollPx = 0;
+}
+
 void CycleSettingOption(const std::wstring& actionId) {
+    if (actionId == L"manual_sync") {
+        if (g_weatherWakeEvent) {
+            SetEvent(g_weatherWakeEvent);
+        }
+        return;
+    }
+    if (actionId == L"sec_sky") {
+        ToggleExclusiveSection(ExpandedSection::Sky);
+        return;
+    }
+    if (actionId == L"sec_precip") {
+        ToggleExclusiveSection(ExpandedSection::Precipitation);
+        return;
+    }
+    if (actionId == L"sec_effects") {
+        ToggleExclusiveSection(ExpandedSection::Effects);
+        return;
+    }
+
     auto nextTri = [](TriStateMode m) -> TriStateMode {
         if (m == TriStateMode::Auto) return TriStateMode::On;
         if (m == TriStateMode::On) return TriStateMode::Off;
@@ -1888,7 +1908,6 @@ bool ParseWeatherJson(const std::string& json, ForecastSnapshot& outSnap) {
                              outSnap.aqiValue, outSnap.pm25Value, outSnap.pollenMaxValue,
                              outSnap.isDay, outSnap.hasPrecip, outSnap.precipKind, outSnap.effects);
         outSnap.valid = true;
-        outSnap.lastUpdateTickMs = GetTickCount64();
 
         SYSTEMTIME st = {};
         GetLocalTime(&st);
@@ -2322,10 +2341,6 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                             } else if (fieldToFocus == HudFieldId::EffectsIntensity) {
                                 swprintf_s(numBuf, L"%d", cur.effectsIntensity);
                                 initialFieldText = numBuf;
-                            } else if (fieldToFocus == HudFieldId::SkyPrecipColors) {
-                                initialFieldText = cur.skyPrecipColorsRaw;
-                            } else if (fieldToFocus == HudFieldId::EffectsColors) {
-                                initialFieldText = cur.effectsColorsRaw;
                             }
                         }
                         break;
@@ -2389,6 +2404,7 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (!nextExp) {
                     std::lock_guard<std::mutex> lock(g_hudUiMutex);
                     g_hudScrollPx = 0;
+                    g_expandedSection = ExpandedSection::None;
                     g_focusedField = HudFieldId::None;
                     g_editBuffer.clear();
                 }
@@ -2411,7 +2427,6 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         HudFieldId activeField = HudFieldId::None;
         std::wstring bufCopy;
         bool shouldCommit = false;
-        bool shouldCancel = false;
         {
             std::lock_guard<std::mutex> lock(g_hudUiMutex);
             activeField = g_focusedField;
@@ -2422,7 +2437,6 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     g_focusedField = HudFieldId::None;
                     g_editBuffer.clear();
                 } else if (wParam == VK_ESCAPE) {
-                    shouldCancel = true;
                     g_focusedField = HudFieldId::None;
                     g_editBuffer.clear();
                 } else if (wParam == VK_BACK && !g_editBuffer.empty()) {
@@ -2434,7 +2448,6 @@ LRESULT CALLBACK OverlayWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (shouldCommit) {
             CommitEditedFieldValue(activeField, bufCopy);
         }
-        (void)shouldCancel;
     } else if (msg == WM_CHAR) {
         wchar_t ch = static_cast<wchar_t>(wParam);
         if (ch >= 32 && ch != 127) {
@@ -2571,7 +2584,7 @@ bool RebuildFlakeSprite(CachedSurface& surf, D2D1_COLOR_F snowCol, bool hasCusto
     return surf.flakeSprite != nullptr;
 }
 
-bool EnsureDirectWrite() {
+bool EnsureDirectWrite(float fontSizePx) {
     if (!g_dwriteFactory) {
         DWriteCreateFactory(
             DWRITE_FACTORY_TYPE_SHARED,
@@ -2580,63 +2593,59 @@ bool EnsureDirectWrite() {
     }
     if (!g_dwriteFactory) return false;
 
+    if (std::abs(g_cachedFontSizePx - fontSizePx) > 0.1f) {
+        if (g_hudPillFormat) { g_hudPillFormat->Release(); g_hudPillFormat = nullptr; }
+        if (g_hudCircleFormat) { g_hudCircleFormat->Release(); g_hudCircleFormat = nullptr; }
+        if (g_hudTitleFormat) { g_hudTitleFormat->Release(); g_hudTitleFormat = nullptr; }
+        if (g_hudBodyFormat) { g_hudBodyFormat->Release(); g_hudBodyFormat = nullptr; }
+        g_cachedFontSizePx = fontSizePx;
+    }
+
     if (!g_hudTitleFormat) {
         g_dwriteFactory->CreateTextFormat(
             L"Segoe UI", nullptr,
             DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-            12.5f, L"en-US", &g_hudTitleFormat);
+            fontSizePx + 0.5f, L"en-US", &g_hudTitleFormat);
     }
     if (!g_hudBodyFormat) {
         g_dwriteFactory->CreateTextFormat(
             L"Segoe UI", nullptr,
             DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-            11.5f, L"en-US", &g_hudBodyFormat);
+            fontSizePx, L"en-US", &g_hudBodyFormat);
     }
     if (!g_hudCircleFormat) {
         g_dwriteFactory->CreateTextFormat(
             L"Segoe UI", nullptr,
             DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-            14.0f, L"en-US", &g_hudCircleFormat);
+            std::max(10.0f, fontSizePx + 1.5f), L"en-US", &g_hudCircleFormat);
         if (g_hudCircleFormat) {
             g_hudCircleFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
             g_hudCircleFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         }
     }
-    if (!g_hudBadgeFormat) {
+    if (!g_hudPillFormat) {
+        float pillFont = std::max(8.5f, fontSizePx - 1.5f);
         g_dwriteFactory->CreateTextFormat(
             L"Segoe UI", nullptr,
-            DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-            9.5f, L"en-US", &g_hudBadgeFormat);
-        if (g_hudBadgeFormat) {
-            g_hudBadgeFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-            g_hudBadgeFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+            pillFont, L"en-US", &g_hudPillFormat);
+        if (g_hudPillFormat) {
+            g_hudPillFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+            g_hudPillFormat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+            g_hudPillFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
         }
     }
     return g_hudTitleFormat != nullptr && g_hudBodyFormat != nullptr &&
-           g_hudCircleFormat != nullptr && g_hudBadgeFormat != nullptr;
+           g_hudCircleFormat != nullptr && g_hudPillFormat != nullptr;
 }
 
 void CleanupDirectWrite() {
-    if (g_hudBadgeFormat) {
-        g_hudBadgeFormat->Release();
-        g_hudBadgeFormat = nullptr;
-    }
-    if (g_hudCircleFormat) {
-        g_hudCircleFormat->Release();
-        g_hudCircleFormat = nullptr;
-    }
-    if (g_hudTitleFormat) {
-        g_hudTitleFormat->Release();
-        g_hudTitleFormat = nullptr;
-    }
-    if (g_hudBodyFormat) {
-        g_hudBodyFormat->Release();
-        g_hudBodyFormat = nullptr;
-    }
-    if (g_dwriteFactory) {
-        g_dwriteFactory->Release();
-        g_dwriteFactory = nullptr;
-    }
+    if (g_hudPillFormat) { g_hudPillFormat->Release(); g_hudPillFormat = nullptr; }
+    if (g_hudCircleFormat) { g_hudCircleFormat->Release(); g_hudCircleFormat = nullptr; }
+    if (g_hudTitleFormat) { g_hudTitleFormat->Release(); g_hudTitleFormat = nullptr; }
+    if (g_hudBodyFormat) { g_hudBodyFormat->Release(); g_hudBodyFormat = nullptr; }
+    if (g_dwriteFactory) { g_dwriteFactory->Release(); g_dwriteFactory = nullptr; }
+    g_cachedFontSizePx = 0.0f;
 }
 
 bool EnsureSurface(CachedSurface& surf, int width, int height, D2D1_COLOR_F snowCol, bool hasCustomSnow) {
@@ -3338,35 +3347,19 @@ void DrawFloodWaterLayer(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
     }
 }
 
-ProviderDataStatus EvaluateProviderDataStatus(const Settings& cfg, const ForecastSnapshot& snap) {
-    if (cfg.primarySource == L"off") return ProviderDataStatus::Unavailable;
-    if (cfg.primarySource == L"open_meteo" && !cfg.hasValidCoords) return ProviderDataStatus::Unavailable;
-    if (cfg.primarySource == L"custom_api" && cfg.customApiUrl.empty()) return ProviderDataStatus::Unavailable;
-    if (cfg.primarySource == L"local_file" && cfg.localWeatherPath.empty()) return ProviderDataStatus::Unavailable;
-    if (!snap.valid) return ProviderDataStatus::Unavailable;
-
-    ULONGLONG ageMs = GetTickCount64() - snap.lastUpdateTickMs;
-    ULONGLONG maxAgeMs = static_cast<ULONGLONG>(cfg.updateIntervalMin) * 60000ULL * 2ULL + 120000ULL;
-    if (ageMs > maxAgeMs) return ProviderDataStatus::Stale;
-    return ProviderDataStatus::Ok;
-}
-
-void DrawRoundBadgeControl(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
+void DrawRoundedPillButton(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
                            const Settings& cfg, const InteractiveControl& ctrl) {
-    float cx = (ctrl.rect.left + ctrl.rect.right) * 0.5f;
-    float cy = (ctrl.rect.top + ctrl.rect.bottom) * 0.5f;
-    float r = std::max(6.0f, (ctrl.rect.right - ctrl.rect.left) * 0.5f);
-
+    D2D1_ROUNDED_RECT rr = D2D1::RoundedRect(ctrl.rect, 5.0f, 5.0f);
     brush->SetOpacity(1.0f);
-    brush->SetColor(D2D1::ColorF(ctrl.badgeTint.r, ctrl.badgeTint.g, ctrl.badgeTint.b, 0.28f));
-    rt->FillEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), r, r), brush);
+    brush->SetColor(D2D1::ColorF(ctrl.tint.r, ctrl.tint.g, ctrl.tint.b, 0.24f));
+    rt->FillRoundedRectangle(rr, brush);
 
-    brush->SetColor(D2D1::ColorF(ctrl.badgeTint.r, ctrl.badgeTint.g, ctrl.badgeTint.b, 0.90f));
-    rt->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(cx, cy), r, r), brush, 1.4f);
+    brush->SetColor(D2D1::ColorF(ctrl.tint.r, ctrl.tint.g, ctrl.tint.b, 0.85f));
+    rt->DrawRoundedRectangle(rr, brush, 1.2f);
 
     brush->SetColor(cfg.colorHudText);
-    rt->DrawTextW(ctrl.badgeText.c_str(), static_cast<UINT32>(ctrl.badgeText.size()),
-                  g_hudBadgeFormat, ctrl.rect, brush);
+    rt->DrawTextW(ctrl.btnText.c_str(), static_cast<UINT32>(ctrl.btnText.size()),
+                  g_hudPillFormat, ctrl.rect, brush);
 }
 
 void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
@@ -3376,21 +3369,22 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
                            bool timeOfDayActive, const wchar_t* todLabel,
                            float cloudPct01, bool sunActive, float uvIndex,
                            bool moonActive, double moonPhase01, int bottomLimitY) {
-    if (!cfg.forecastHudEnabled || !EnsureDirectWrite()) {
+    if (!cfg.forecastHudEnabled || !EnsureDirectWrite(cfg.hudFontSizePx)) {
         g_hudBtnR.store(0.0f);
         return;
     }
 
     const MonitorCanvasRect& primaryMon = g_monitorRects.front();
-    float minSide = std::min(primaryMon.width, primaryMon.height);
-    float btnR = std::max(20.0f, minSide * (static_cast<float>(cfg.hudButtonGeom.radius) / 100.0f));
+    float btnR = cfg.hudButtonRadiusPx;
     float btnCx = 0.0f;
     float btnCy = 0.0f;
 
     bool isDragging = false;
+    ExpandedSection expSec = ExpandedSection::None;
     {
         std::lock_guard<std::mutex> lock(g_hudUiMutex);
         isDragging = g_draggingHudBtn;
+        expSec = g_expandedSection;
         if (isDragging) {
             btnCx = g_hudBtnCx.load();
             btnCy = g_hudBtnCy.load();
@@ -3403,179 +3397,209 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
         }
     }
 
+    float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
     btnCx = std::clamp(btnCx, primaryMon.left + btnR + 6.0f, primaryMon.left + primaryMon.width - btnR - 6.0f);
-    btnCy = std::clamp(btnCy, primaryMon.top + btnR + 6.0f, primaryMon.top + primaryMon.bottomLimitRelY - btnR - 6.0f);
+    btnCy = std::clamp(btnCy, primaryMon.top + btnR + 6.0f, primaryMon.top + bottomRelY - btnR - 6.0f);
     g_hudBtnCx.store(btnCx);
     g_hudBtnCy.store(btnCy);
     g_hudBtnR.store(btnR);
 
     bool expanded = g_hudExpanded.load();
-    ProviderDataStatus provStatus = EvaluateProviderDataStatus(cfg, snap);
-    D2D1_COLOR_F provTint = (provStatus == ProviderDataStatus::Ok)
-        ? D2D1::ColorF(0.25f, 0.85f, 0.48f, 0.90f)
-        : ((provStatus == ProviderDataStatus::Stale)
-            ? D2D1::ColorF(0.95f, 0.72f, 0.22f, 0.90f)
-            : D2D1::ColorF(0.92f, 0.35f, 0.35f, 0.90f));
-    const wchar_t* provTag = (provStatus == ProviderDataStatus::Ok)
-        ? L"OK"
-        : ((provStatus == ProviderDataStatus::Stale) ? L"OLD" : L"OFF");
 
-    auto triBadge = [](TriStateMode m) -> std::pair<std::wstring, D2D1_COLOR_F> {
+    auto triLabel = [](TriStateMode m) -> std::pair<std::wstring, D2D1_COLOR_F> {
         if (m == TriStateMode::On) return {L"ON", D2D1::ColorF(0.25f, 0.85f, 0.48f, 0.9f)};
         if (m == TriStateMode::Off) return {L"OFF", D2D1::ColorF(0.85f, 0.35f, 0.35f, 0.9f)};
-        return {L"AUTO", D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.9f)};
+        return {L"A", D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.9f)};
     };
 
     struct HudRow {
         std::wstring label;
         std::wstring value;
         bool isHeader = false;
-        bool hasProviderBadge = false;
-        std::wstring cycleAction;
-        std::wstring cycleLabel;
-        D2D1_COLOR_F cycleTint = D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.9f);
+        std::wstring actionId;
+        std::wstring btnLabel;
+        D2D1_COLOR_F btnTint = D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.90f);
         HudFieldId editField = HudFieldId::None;
     };
 
     std::vector<HudRow> rows;
-    rows.push_back({L"FORECAST & CONTROLS", snap.valid ? (snap.sourceLabel + L"  " + snap.lastUpdateText) : L"No data", true, true, L"", L"", provTint, HudFieldId::None});
-
     wchar_t buf[96] = {};
-    rows.push_back({L"Provider coords", cfg.coordsRaw.empty() ? L"(empty)" : cfg.coordsRaw, false, true, L"cycle_source", L"SRC", provTint, HudFieldId::Coords});
-    rows.push_back({L"Condition", snap.valid ? WmoCodeToLabel(snap.weatherCode) : L"N/A", false, true, L"", L"", provTint, HudFieldId::None});
+
+    rows.push_back({
+        L"FORECAST",
+        snap.valid ? (snap.sourceLabel + L"  " + snap.lastUpdateText) : L"No data",
+        true,
+        L"manual_sync",
+        L"SYNC",
+        D2D1::ColorF(0.30f, 0.78f, 0.95f, 0.9f),
+        HudFieldId::None
+    });
+
+    rows.push_back({L"Coords", cfg.coordsRaw.empty() ? L"(empty)" : cfg.coordsRaw, false,
+                    L"cycle_source", cfg.primarySource, D2D1::ColorF(0.45f, 0.72f, 0.98f, 0.9f), HudFieldId::Coords});
+    rows.push_back({L"Condition", snap.valid ? WmoCodeToLabel(snap.weatherCode) : L"N/A", false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.1f °C", snap.tempC);
     else swprintf_s(buf, L"-- °C");
-    rows.push_back({L"Temperature", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"Temperature", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.1f km/h (%s)", snap.windSpeedKmh, WindDegToCompass(snap.windDirDeg));
     else swprintf_s(buf, L"-- km/h");
-    rows.push_back({L"Wind", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"Wind", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.0f%%", snap.cloudCoverPct);
     else swprintf_s(buf, L"--%%");
-    rows.push_back({L"Cloud cover", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"Cloud cover", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.1f mm", snap.precipMm);
     else swprintf_s(buf, L"-- mm");
-    rows.push_back({L"Precipitation", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"Precipitation", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.1f", snap.uvIndex);
     else swprintf_s(buf, L"--");
-    rows.push_back({L"UV index", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"UV index", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
     if (snap.valid) swprintf_s(buf, L"%.0f / PM2.5 %.1f", snap.aqiValue, snap.pm25Value);
     else swprintf_s(buf, L"-- AQI");
-    rows.push_back({L"Air quality", buf, false, true, L"", L"", provTint, HudFieldId::None});
+    rows.push_back({L"Air quality", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::None});
 
-    rows.push_back({L"[SKY] CLOUDS, SUN & MOON", L"", true, false, L"", L"", provTint, HudFieldId::None});
-    auto cB = triBadge(cfg.cloudsMode);
-    swprintf_s(buf, L"%d%%", cfg.cloudsIntensity);
-    rows.push_back({L"Clouds", buf, false, false, L"cycle_clouds", cB.first, cB.second, HudFieldId::CloudsIntensity});
+    rows.push_back({
+        L"[Sky]",
+        expSec == ExpandedSection::Sky ? L"Expanded" : L"Collapsed",
+        true,
+        L"sec_sky",
+        expSec == ExpandedSection::Sky ? L"HIDE" : L"OPEN",
+        D2D1::ColorF(0.45f, 0.75f, 1.0f, 0.9f),
+        HudFieldId::None
+    });
+    if (expSec == ExpandedSection::Sky) {
+        auto cB = triLabel(cfg.cloudsMode);
+        swprintf_s(buf, L"%d%%", cfg.cloudsIntensity);
+        rows.push_back({L"Clouds", buf, false, L"cycle_clouds", cB.first, cB.second, HudFieldId::CloudsIntensity});
 
-    auto sB = triBadge(cfg.sunMode);
-    swprintf_s(buf, L"UV %.1f", uvIndex);
-    rows.push_back({L"Sun", buf, false, false, L"cycle_sun", sB.first, sB.second, HudFieldId::SunUvOverride});
+        auto sB = triLabel(cfg.sunMode);
+        swprintf_s(buf, L"UV %.1f", uvIndex);
+        rows.push_back({L"Sun", buf, false, L"cycle_sun", sB.first, sB.second, HudFieldId::SunUvOverride});
 
-    auto mB = triBadge(cfg.moonMode);
-    swprintf_s(buf, L"%.2f (%s)", moonPhase01, MoonPhaseToLabel(moonPhase01));
-    rows.push_back({L"Moon", buf, false, false, L"cycle_moon", mB.first, mB.second, HudFieldId::MoonPhaseOverride});
+        auto mB = triLabel(cfg.moonMode);
+        swprintf_s(buf, L"%.2f (%s)", moonPhase01, MoonPhaseToLabel(moonPhase01));
+        rows.push_back({L"Moon", buf, false, L"cycle_moon", mB.first, mB.second, HudFieldId::MoonPhaseOverride});
 
-    rows.push_back({L"Sun / Moon over clouds", cfg.celestialInFrontOfClouds ? L"Front" : L"Dimmed", false, false,
-                    L"toggle_celestial_front", cfg.celestialInFrontOfClouds ? L"TOP" : L"DIM",
-                    cfg.celestialInFrontOfClouds ? D2D1::ColorF(0.25f, 0.85f, 0.48f, 0.9f) : D2D1::ColorF(0.65f, 0.72f, 0.85f, 0.9f),
-                    HudFieldId::None});
+        rows.push_back({L"Over clouds", cfg.celestialInFrontOfClouds ? L"Front" : L"Dimmed", false,
+                        L"toggle_celestial_front", cfg.celestialInFrontOfClouds ? L"FRONT" : L"DIM",
+                        D2D1::ColorF(0.65f, 0.78f, 0.95f, 0.9f), HudFieldId::None});
+    }
 
-    rows.push_back({L"[PRECIPITATION]", L"", true, false, L"", L"", provTint, HudFieldId::None});
-    const wchar_t* pModeStr = (cfg.precipitationMode == PrecipMode::Auto) ? L"AUTO" :
-                              ((cfg.precipitationMode == PrecipMode::Rain) ? L"RAIN" :
-                               ((cfg.precipitationMode == PrecipMode::Snow) ? L"SNOW" :
-                                ((cfg.precipitationMode == PrecipMode::Hail) ? L"HAIL" : L"OFF")));
-    rows.push_back({L"Precip mode", activePrecip ? L"Active" : L"Idle", false, false, L"cycle_precip_mode", pModeStr,
-                    D2D1::ColorF(0.35f, 0.72f, 1.0f, 0.9f), HudFieldId::None});
+    rows.push_back({
+        L"[Precipitation]",
+        expSec == ExpandedSection::Precipitation ? L"Expanded" : L"Collapsed",
+        true,
+        L"sec_precip",
+        expSec == ExpandedSection::Precipitation ? L"HIDE" : L"OPEN",
+        D2D1::ColorF(0.40f, 0.78f, 1.0f, 0.9f),
+        HudFieldId::None
+    });
+    if (expSec == ExpandedSection::Precipitation) {
+        const wchar_t* pModeStr = (cfg.precipitationMode == PrecipMode::Auto) ? L"A" :
+                                  ((cfg.precipitationMode == PrecipMode::Rain) ? L"RAIN" :
+                                   ((cfg.precipitationMode == PrecipMode::Snow) ? L"SNOW" :
+                                    ((cfg.precipitationMode == PrecipMode::Hail) ? L"HAIL" : L"OFF")));
+        rows.push_back({L"Mode", activePrecip ? L"Active" : L"Idle", false, L"cycle_precip_mode", pModeStr,
+                        D2D1::ColorF(0.35f, 0.72f, 1.0f, 0.9f), HudFieldId::None});
 
-    const wchar_t* dStr = (cfg.precipFallDirection == FallDirMode::Auto) ? L"AUTO" :
-                          ((cfg.precipFallDirection == FallDirMode::Down) ? L"↓" :
-                           ((cfg.precipFallDirection == FallDirMode::DownLeft) ? L"↙" : L"↘"));
-    rows.push_back({L"Fall direction", dStr, false, false, L"cycle_precip_dir", dStr,
-                    D2D1::ColorF(0.45f, 0.78f, 1.0f, 0.9f), HudFieldId::None});
+        const wchar_t* dStr = (cfg.precipFallDirection == FallDirMode::Auto) ? L"A" :
+                              ((cfg.precipFallDirection == FallDirMode::Down) ? L"DOWN" :
+                               ((cfg.precipFallDirection == FallDirMode::DownLeft) ? L"LEFT" : L"RIGHT"));
+        rows.push_back({L"Direction", dStr, false, L"cycle_precip_dir", dStr,
+                        D2D1::ColorF(0.45f, 0.78f, 1.0f, 0.9f), HudFieldId::None});
 
-    swprintf_s(buf, L"%.1f m/s", cfg.precipFallSpeedMps);
-    rows.push_back({L"Fall speed", buf, false, false, L"cycle_precip_speed",
-                    cfg.precipSpeedMode == PrecipSpeedMode::Auto ? L"AUTO" : L"CUST",
-                    D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.9f), HudFieldId::PrecipSpeedMps});
+        swprintf_s(buf, L"%.1f m/s", cfg.precipFallSpeedMps);
+        rows.push_back({L"Fall speed", buf, false, L"cycle_precip_speed",
+                        cfg.precipSpeedMode == PrecipSpeedMode::Auto ? L"A" : L"CUSTOM",
+                        D2D1::ColorF(0.35f, 0.68f, 1.0f, 0.9f), HudFieldId::PrecipSpeedMps});
 
-    swprintf_s(buf, L"%d%%", cfg.precipIntensity);
-    rows.push_back({L"Precip intensity", buf, false, false, L"", L"", provTint, HudFieldId::PrecipIntensity});
+        swprintf_s(buf, L"%d%%", cfg.precipIntensity);
+        rows.push_back({L"Intensity", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::PrecipIntensity});
+    }
 
-    rows.push_back({L"[EFFECTS]", L"", true, false, L"", L"", provTint, HudFieldId::None});
-    swprintf_s(buf, L"%d%%", cfg.effectsIntensity);
-    rows.push_back({L"Effects intensity", buf, false, false, L"", L"", provTint, HudFieldId::EffectsIntensity});
+    rows.push_back({
+        L"[Effects]",
+        expSec == ExpandedSection::Effects ? L"Expanded" : L"Collapsed",
+        true,
+        L"sec_effects",
+        expSec == ExpandedSection::Effects ? L"HIDE" : L"OPEN",
+        D2D1::ColorF(0.95f, 0.72f, 0.35f, 0.9f),
+        HudFieldId::None
+    });
+    if (expSec == ExpandedSection::Effects) {
+        swprintf_s(buf, L"%d%%", cfg.effectsIntensity);
+        rows.push_back({L"Intensity", buf, false, L"", L"", D2D1::ColorF(0,0,0,0), HudFieldId::EffectsIntensity});
 
-    const wchar_t* perfStr = (cfg.performanceMode == PerformanceMode::High) ? L"HIGH" :
-                             ((cfg.performanceMode == PerformanceMode::Medium) ? L"MED" : L"LOW");
-    rows.push_back({L"Performance", perfStr, false, false, L"cycle_perf", perfStr,
-                    D2D1::ColorF(0.30f, 0.85f, 0.65f, 0.9f), HudFieldId::None});
+        const wchar_t* perfStr = (cfg.performanceMode == PerformanceMode::High) ? L"HIGH" :
+                                 ((cfg.performanceMode == PerformanceMode::Medium) ? L"MEDIUM" : L"LOW");
+        rows.push_back({L"Performance", perfStr, false, L"cycle_perf", perfStr,
+                        D2D1::ColorF(0.30f, 0.85f, 0.65f, 0.9f), HudFieldId::None});
 
-    const wchar_t* todStr = (cfg.timeOfDayMode == TimeOfDayMode::Auto) ? L"AUTO" :
-                            ((cfg.timeOfDayMode == TimeOfDayMode::Dawn) ? L"DAWN" :
-                             ((cfg.timeOfDayMode == TimeOfDayMode::Day) ? L"DAY" :
-                              ((cfg.timeOfDayMode == TimeOfDayMode::Sunset) ? L"DUSK" :
-                               ((cfg.timeOfDayMode == TimeOfDayMode::Night) ? L"NGT" : L"OFF"))));
-    rows.push_back({L"Time of day", todLabel ? todLabel : L"Auto", false, false, L"cycle_tod", todStr,
-                    D2D1::ColorF(0.95f, 0.72f, 0.35f, 0.9f), HudFieldId::None});
+        const wchar_t* todStr = (cfg.timeOfDayMode == TimeOfDayMode::Auto) ? L"A" :
+                                ((cfg.timeOfDayMode == TimeOfDayMode::Dawn) ? L"DAWN" :
+                                 ((cfg.timeOfDayMode == TimeOfDayMode::Day) ? L"DAY" :
+                                  ((cfg.timeOfDayMode == TimeOfDayMode::Sunset) ? L"SUNSET" :
+                                   ((cfg.timeOfDayMode == TimeOfDayMode::Night) ? L"NIGHT" : L"OFF"))));
+        rows.push_back({L"Time of day", todLabel ? todLabel : L"Auto", false, L"cycle_tod", todStr,
+                        D2D1::ColorF(0.95f, 0.72f, 0.35f, 0.9f), HudFieldId::None});
 
-    auto addFxRow = [&](const wchar_t* name, TriStateMode m, const wchar_t* act) {
-        auto b = triBadge(m);
-        rows.push_back({name, m == TriStateMode::Off ? L"Off" : L"Active", false, false, act, b.first, b.second, HudFieldId::None});
-    };
-    addFxRow(L"Clear glow", cfg.effectClear, L"cycle_fx_clear");
-    addFxRow(L"Partly cloudy", cfg.effectPartlyCloudy, L"cycle_fx_partly");
-    addFxRow(L"Overcast", cfg.effectOvercast, L"cycle_fx_overcast");
-    addFxRow(L"Dust", cfg.effectDust, L"cycle_fx_dust");
-    addFxRow(L"Fog", cfg.effectFog, L"cycle_fx_fog");
-    addFxRow(L"Smog", cfg.effectSmog, L"cycle_fx_smog");
-    addFxRow(L"Thunderstorm", cfg.effectThunderstorm, L"cycle_fx_storm");
-    addFxRow(L"Aurora", cfg.effectAurora, L"cycle_fx_aurora");
-    addFxRow(L"Mirage", cfg.effectMirage, L"cycle_fx_mirage");
-    addFxRow(L"Rainbow", cfg.effectRainbow, L"cycle_fx_rainbow");
-    addFxRow(L"Wind streams", cfg.effectWindStreams, L"cycle_fx_wind");
-    addFxRow(L"Frost / Heat", cfg.effectThermal, L"cycle_fx_thermal");
-    addFxRow(L"Night stars", cfg.effectNightStars, L"cycle_fx_stars");
-    addFxRow(L"Air quality", cfg.effectAirQuality, L"cycle_fx_aq");
-    addFxRow(L"Pollen", cfg.effectPollen, L"cycle_fx_pollen");
-    addFxRow(L"Flood water", cfg.effectFloodWater, L"cycle_fx_flood");
-
-    rows.push_back({L"[COLORS ('/' LISTS)]", L"", true, false, L"", L"", provTint, HudFieldId::None});
-    rows.push_back({L"Sky & precip colors", cfg.skyPrecipColorsRaw, false, false, L"", L"", provTint, HudFieldId::SkyPrecipColors});
-    rows.push_back({L"Effects colors", cfg.effectsColorsRaw, false, false, L"", L"", provTint, HudFieldId::EffectsColors});
+        auto addFxRow = [&](const wchar_t* name, TriStateMode m, const wchar_t* act) {
+            auto b = triLabel(m);
+            rows.push_back({name, m == TriStateMode::Off ? L"Off" : L"Active", false, act, b.first, b.second, HudFieldId::None});
+        };
+        addFxRow(L"Clear glow", cfg.effectClear, L"cycle_fx_clear");
+        addFxRow(L"Partly cloudy", cfg.effectPartlyCloudy, L"cycle_fx_partly");
+        addFxRow(L"Overcast", cfg.effectOvercast, L"cycle_fx_overcast");
+        addFxRow(L"Dust", cfg.effectDust, L"cycle_fx_dust");
+        addFxRow(L"Fog", cfg.effectFog, L"cycle_fx_fog");
+        addFxRow(L"Smog", cfg.effectSmog, L"cycle_fx_smog");
+        addFxRow(L"Thunderstorm", cfg.effectThunderstorm, L"cycle_fx_storm");
+        addFxRow(L"Aurora", cfg.effectAurora, L"cycle_fx_aurora");
+        addFxRow(L"Mirage", cfg.effectMirage, L"cycle_fx_mirage");
+        addFxRow(L"Rainbow", cfg.effectRainbow, L"cycle_fx_rainbow");
+        addFxRow(L"Wind streams", cfg.effectWindStreams, L"cycle_fx_wind");
+        addFxRow(L"Frost / Heat", cfg.effectThermal, L"cycle_fx_thermal");
+        addFxRow(L"Night stars", cfg.effectNightStars, L"cycle_fx_stars");
+        addFxRow(L"Air quality", cfg.effectAirQuality, L"cycle_fx_aq");
+        addFxRow(L"Pollen", cfg.effectPollen, L"cycle_fx_pollen");
+        addFxRow(L"Flood water", cfg.effectFloodWater, L"cycle_fx_flood");
+    }
 
     std::vector<InteractiveControl> nextControls;
 
     if (expanded) {
         const float padX = 12.0f;
         const float padY = 10.0f;
-        const float rowH = 24.0f;
-        const float headerH = 24.0f;
+        const float rowH = std::max(22.0f, cfg.hudFontSizePx + 11.0f);
+        const float headerH = std::max(24.0f, cfg.hudFontSizePx + 13.0f);
+        const float pillW = std::max(64.0f, cfg.hudFontSizePx * 5.6f);
+        const float pillH = std::max(18.0f, cfg.hudFontSizePx + 6.0f);
+        const float valW = std::max(120.0f, cfg.hudFontSizePx * 10.5f);
+        const float labelW = std::max(115.0f, cfg.hudFontSizePx * 10.0f);
         const float gap = static_cast<float>(cfg.forecastHudMarginPx);
-        float bottomRelY = static_cast<float>(bottomLimitY - g_canvasTop);
 
+        float cardW = padX * 2.0f + labelW + valW + pillW + 24.0f;
         float totalContentH = padY * 2.0f;
         for (const auto& r : rows) {
             totalContentH += r.isHeader ? headerH : rowH;
         }
 
-        float availH = std::max(140.0f, bottomRelY - gap * 2.0f);
+        float availH = std::max(120.0f, bottomRelY - gap * 2.0f);
         bool needsScroll = totalContentH > availH;
         float cardH = std::min(totalContentH, availH);
 
         float spaceRight = (primaryMon.left + primaryMon.width - gap) - (btnCx + btnR + gap);
         float spaceLeft = (btnCx - btnR - gap) - (primaryMon.left + gap);
-        float left = (spaceRight >= kHudCardWidth)
+        float left = (spaceRight >= cardW)
             ? (btnCx + btnR + gap)
-            : ((spaceLeft >= kHudCardWidth)
-                ? (btnCx - btnR - gap - kHudCardWidth)
-                : std::clamp(btnCx - kHudCardWidth * 0.5f, primaryMon.left + gap, primaryMon.left + primaryMon.width - kHudCardWidth - gap));
+            : ((spaceLeft >= cardW)
+                ? (btnCx - btnR - gap - cardW)
+                : std::clamp(btnCx - cardW * 0.5f, primaryMon.left + gap, primaryMon.left + primaryMon.width - cardW - gap));
 
         float spaceTop = (btnCy - btnR - gap) - (primaryMon.top + gap);
         float spaceBottom = (bottomRelY - gap) - (btnCy + btnR + gap);
@@ -3603,7 +3627,7 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
         }
 
         D2D1_ROUNDED_RECT cardRect = D2D1::RoundedRect(
-            D2D1::RectF(left, top, left + kHudCardWidth, top + cardH),
+            D2D1::RectF(left, top, left + cardW, top + cardH),
             10.0f, 10.0f);
 
         brush->SetOpacity(1.0f);
@@ -3616,13 +3640,13 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
         rt->DrawRoundedRectangle(cardRect, brush, 1.0f);
 
         rt->PushAxisAlignedClip(
-            D2D1::RectF(left + 2.0f, top + 4.0f, left + kHudCardWidth - 2.0f, top + cardH - 4.0f),
+            D2D1::RectF(left + 2.0f, top + 4.0f, left + cardW - 2.0f, top + cardH - 4.0f),
             D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
 
         D2D1_COLOR_F sepCol = cfg.colorHudText;
         sepCol.a = 0.14f;
         D2D1_COLOR_F mutedText = cfg.colorHudText;
-        mutedText.a = std::clamp(cfg.colorHudText.a * 0.76f, 0.40f, 0.92f);
+        mutedText.a = std::clamp(cfg.colorHudText.a * 0.78f, 0.42f, 0.92f);
 
         float curY = top + padY - static_cast<float>(scrollPx);
         for (size_t i = 0; i < rows.size(); ++i) {
@@ -3634,48 +3658,37 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
                     brush->SetColor(sepCol);
                     rt->DrawLine(
                         D2D1::Point2F(left + padX, curY - 2.0f),
-                        D2D1::Point2F(left + kHudCardWidth - padX, curY - 2.0f),
+                        D2D1::Point2F(left + cardW - padX, curY - 2.0f),
                         brush, 1.0f);
                 }
 
                 IDWriteTextFormat* fmt = r.isHeader ? g_hudTitleFormat : g_hudBodyFormat;
                 brush->SetColor(r.isHeader ? cfg.colorHudText : mutedText);
-                D2D1_RECT_F labelRect = D2D1::RectF(left + padX, curY, left + kHudCardWidth * 0.44f, curY + h);
+                D2D1_RECT_F labelRect = D2D1::RectF(left + padX, curY, left + padX + labelW, curY + h);
                 rt->DrawTextW(r.label.c_str(), static_cast<UINT32>(r.label.size()), fmt, labelRect, brush);
 
-                float badgeSize = 18.0f;
-                float rightEdge = left + kHudCardWidth - padX - (needsScroll ? 8.0f : 0.0f);
+                float rightEdge = left + cardW - padX - (needsScroll ? 8.0f : 0.0f);
                 float cursorX = rightEdge;
 
-                if (!r.cycleAction.empty()) {
-                    D2D1_RECT_F badgeRect = D2D1::RectF(cursorX - badgeSize, curY + (h - badgeSize) * 0.5f,
-                                                        cursorX, curY + (h + badgeSize) * 0.5f);
+                if (!r.actionId.empty()) {
+                    D2D1_RECT_F pillRect = D2D1::RectF(
+                        cursorX - pillW,
+                        curY + (h - pillH) * 0.5f,
+                        cursorX,
+                        curY + (h + pillH) * 0.5f);
                     InteractiveControl ic;
-                    ic.rect = badgeRect;
-                    ic.isRound = true;
-                    ic.actionId = r.cycleAction;
-                    ic.badgeText = r.cycleLabel;
-                    ic.badgeTint = r.cycleTint;
-                    DrawRoundBadgeControl(rt, brush, cfg, ic);
+                    ic.rect = pillRect;
+                    ic.actionId = r.actionId;
+                    ic.btnText = r.btnLabel;
+                    ic.tint = r.btnTint;
+                    DrawRoundedPillButton(rt, brush, cfg, ic);
                     nextControls.push_back(ic);
-                    cursorX -= (badgeSize + 6.0f);
-                } else if (r.hasProviderBadge) {
-                    D2D1_RECT_F provRect = D2D1::RectF(cursorX - badgeSize, curY + (h - badgeSize) * 0.5f,
-                                                       cursorX, curY + (h + badgeSize) * 0.5f);
-                    InteractiveControl ic;
-                    ic.rect = provRect;
-                    ic.isRound = true;
-                    ic.badgeText = provTag;
-                    ic.badgeTint = provTint;
-                    DrawRoundBadgeControl(rt, brush, cfg, ic);
-                    nextControls.push_back(ic);
-                    cursorX -= (badgeSize + 6.0f);
+                    cursorX -= (pillW + 8.0f);
                 }
 
                 if (!r.value.empty() || r.editField != HudFieldId::None) {
                     bool isEditing = (r.editField != HudFieldId::None && focusedField == r.editField);
                     std::wstring dispVal = isEditing ? (editBuf + L"|") : r.value;
-                    float valW = 135.0f;
                     D2D1_RECT_F valRect = D2D1::RectF(cursorX - valW, curY + 2.0f, cursorX, curY + h - 2.0f);
 
                     if (r.editField != HudFieldId::None) {
@@ -3688,7 +3701,6 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
 
                         InteractiveControl ic;
                         ic.rect = valRect;
-                        ic.isRound = false;
                         ic.fieldId = r.editField;
                         nextControls.push_back(ic);
                     }
@@ -3713,7 +3725,7 @@ void DrawForecastHudWidget(ID2D1DCRenderTarget* rt, ID2D1SolidColorBrush* brush,
             brush->SetOpacity(1.0f);
             brush->SetColor(D2D1::ColorF(cfg.colorHudText.r, cfg.colorHudText.g, cfg.colorHudText.b, 0.32f));
             rt->FillRoundedRectangle(
-                D2D1::RoundedRect(D2D1::RectF(left + kHudCardWidth - 7.0f, thumbTop, left + kHudCardWidth - 3.0f, thumbTop + thumbH), 2.0f, 2.0f),
+                D2D1::RoundedRect(D2D1::RectF(left + cardW - 7.0f, thumbTop, left + cardW - 3.0f, thumbTop + thumbH), 2.0f, 2.0f),
                 brush);
         }
 
