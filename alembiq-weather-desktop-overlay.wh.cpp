@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Atmospheric effects and live weather forecast visualization for the Windows desktop (Direct2D overlay)
-// @version         1.8.1
+// @version         1.8.1.1
 // @author          alembiq
 // @github          https://github.com/alembiqspace
 // @include         windhawk.exe
