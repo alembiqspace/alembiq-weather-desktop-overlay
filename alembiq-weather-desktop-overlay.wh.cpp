@@ -2,7 +2,7 @@
 // @id              alembiq-weather-desktop-overlay
 // @name            Desktop Weather & Particles Overlay
 // @description     Weather effects and seasonal particles under desktop icons with window accumulation and shake physics.
-// @version         1.4.2
+// @version         1.4.2 stable
 // @author          alembiq
 // @github          https://github.com/alembiqspace
 // @include         explorer.exe
